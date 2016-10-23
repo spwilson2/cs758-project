@@ -1,0 +1,60 @@
+
+Project Details:
+
+    Pre-requisite Research (Order of importance), Sources to list:
+
+    - Linux AIO support, usage, previous benchmarking work?
+    - How blocking linux system calls treat threads. Do they completely deschedule? (I assume so)
+    - Benchmarking Linux Systemcalls. How have people done this in the past? What's the accepted method? perf?
+
+    - Go(/Erlang?) scheduling system
+
+	The Problem:
+		- OS threads are expensive so green threads provide a solution to this,
+		  however, since green threads aren't in the kernel, there's no way for the 
+		  kernel to know a thread is "green" and could still be useful
+
+	Existing Solution:
+		Keep around some extra IO threads.
+			- More costs due to extra threads
+
+				TODO: Look into how these threads are used. 
+					Are they sleeping and woken when IO is done?
+					- Cost of wake could be another issue
+
+					Are they running still?
+					- Puts more pressure on go scheduler to manage when context switches occur 
+					  if os threads > hw threads.
+					- More memory might be wasted to keep multiple OS thread contexts.
+					- Worse cache performance due to context switching, especially if the go
+					  program really is the only program running (server/service)
+			
+
+	Proposed Solution:
+		Since go gets to abstract away scheduling details from programmers 
+			- Use AIO in place of blocking IO in go file open/read/write libraries.
+			  ie: IO could still appear as blocking to a user, just schedule some other 
+			  green thread while async IO is underway.
+				- Modify go scheduler to enable use of non-blocking IO.
+
+    Early Work:
+        Quantifying costs:
+
+			- Cost of typical system calls (O/R/W) for various sized files and time to return 
+			  from syscall
+			- Cost of taking a context switch due to blocking IO
+			^ Effectively, how long might we be de-scheduled for?
+
+			- Cost of AIO (Async IO) systems calls
+			- Cost of responding to interrupts
+			^ Compare and contrast with blocking IO.
+
+		Goal: 
+			Confirm or deny our hypothesis that asynchronous IO allows better overall
+			utilization of a OS thread. TODO: Needs quantification.
+	
+	Mid Level Work:
+
+
+Future Work:
+    - Linux Green Threads Module - Like FUSE for green thread schedulers
