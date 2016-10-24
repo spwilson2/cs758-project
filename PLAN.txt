@@ -49,9 +49,17 @@ Project Details:
 			- Cost of responding to interrupts
 			^ Compare and contrast with blocking IO.
 
+			^ Use different disks/hw to find if different latency devices affect results.
+			^ See how various level caches might affect these latencies as well.
+
 		Goal: 
 			Confirm or deny our hypothesis that asynchronous IO allows better overall
 			utilization of a OS thread. TODO: Needs quantification.
+
+			Understand the "sweet spots" of where AIO outperforms IO and vice versa.
+
+			Be able to make a suggestion whether further work should be undergone - whether 
+			the go scheduler should be modified.
 	
 	Mid Level Work:
 
