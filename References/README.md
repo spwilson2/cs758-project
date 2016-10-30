@@ -3,7 +3,7 @@
 - [linux-aio](https://www.kernel.org/doc/ols/2004/ols2004v1-pages-63-78.pdf)
 - [analysis-go-runtime-scheduler](http://www1.cs.columbia.edu/~aho/cs6998/reports/12-12-11_DeshpandeSponslerWeiss_GO.pdf)
 - [Multicore-scheduling-for-lightweight-communicating-processes](http://csp-consortium.org/apps/Multicore%20Scheduling%20for%20Lightweight%20Communicating%20Processes.pdf)
- - [steal](http://supertech.csail.mit.edu/papers/steal.pdf)
+- [steal](http://supertech.csail.mit.edu/papers/steal.pdf)
 
 
 ## Articles
