@@ -1,68 +1,120 @@
+Author(s): Sean Wilson 
+
+Date Last Modified: 10-30-16
 
 Project Details:
 
-    Pre-requisite Research (Order of importance), Sources to list:
-
-    - Linux AIO support, usage, previous benchmarking work?
-    - How blocking linux system calls treat threads. Do they completely deschedule? (I assume so)
-    - Benchmarking Linux Systemcalls. How have people done this in the past? What's the accepted method? perf?
-
-    - Go(/Erlang?) scheduling system
-
 	The Problem:
-		- OS threads are expensive so green threads provide a solution to this,
-		  however, since green threads aren't in the kernel, there's no way for the 
-		  kernel to know a thread is "green" and could still be useful
+		OS threads are expensive so green threads provide a solution to this.
+		However, since green threads aren't in the kernel, there's no way for
+		the kernel to know a thread is "green" and could still be useful when
+		said thread executes disk IO.
 
-	Existing Solution:
-		Keep around some extra IO threads.
-			- More costs due to extra threads
+	Existing Solution: Keep around some extra IO threads.
+		- More costs due to extra threads
+		- May be costly to wake IO threads
+		- Running more threads than cores can mean inopportune context
+		  switching before the IO thread even executes the system call
+		- If a limit of existing IO threads is reached, either need to spawn
+		  more threads (extra cost to IO) or block whole program.
 
-				TODO: Look into how these threads are used. 
-					Are they sleeping and woken when IO is done?
-					- Cost of wake could be another issue
-
-					Are they running still?
-					- Puts more pressure on go scheduler to manage when context switches occur 
-					  if os threads > hw threads.
-					- More memory might be wasted to keep multiple OS thread contexts.
-					- Worse cache performance due to context switching, especially if the go
-					  program really is the only program running (server/service)
-			
 
 	Proposed Solution:
-		Since go gets to abstract away scheduling details from programmers 
-			- Use AIO in place of blocking IO in go file open/read/write libraries.
-			  ie: IO could still appear as blocking to a user, just schedule some other 
-			  green thread while async IO is underway.
-				- Modify go scheduler to enable use of non-blocking IO.
 
-    Early Work:
-        Quantifying costs:
+		Since go gets to abstract away scheduling details from programmers Use
+		AIO in place of blocking SIO in go file open/read/write libraries. ie:
+		IO could still appear as blocking to a user, just schedule some other
+		green thread while AIO is underway. 
 
-			- Cost of typical system calls (O/R/W) for various sized files and time to return 
-			  from syscall
-			- Cost of taking a context switch due to blocking IO
-			^ Effectively, how long might we be de-scheduled for?
+		ie: Modify go scheduler to enable use blocking AIO with a SIO
+		programmer interface.
+	
+	Pre-requisite Research (Order of importance) (Possible sources to list)
+	======================
 
-			- Cost of AIO (Async IO) systems calls
-			- Cost of responding to interrupts
-			^ Compare and contrast with blocking IO.
+		- Linux AIO support, usage, previous benchmarking work?
 
-			^ Use different disks/hw to find if different latency devices affect results.
-			^ See how various level caches might affect these latencies as well.
+		- How do blocking linux system calls treat threads? Do they completely
+		  deschedule? (I assume so)
 
-		Goal: 
-			Confirm or deny our hypothesis that asynchronous IO allows better overall
-			utilization of a OS thread. TODO: Needs quantification.
+		- Benchmarking Linux Systemcalls. How have people done this in the
+		  past?  What's the accepted method? perf?
 
-			Understand the "sweet spots" of where AIO outperforms IO and vice versa.
+		- Go(/Erlang?) scheduling system
 
-			Be able to make a suggestion whether further work should be undergone - whether 
-			the go scheduler should be modified.
+
+	Early Work - Quantifying costs:
+
+		Tasks:
+
+			* How long might we be de-scheduled for?
+				- Cost of typical system calls (O/R/W) for various sized files
+				  and time to return from syscall
+				- Cost of taking a context switch due to SIO
+
+			* How does AIO fair (Compare and contrast with SIO).
+				- Cost of AIO systems calls (O/R/W) for various size files and
+				  time to return from syscall
+				- Cost of responding to interrupts
+
+			Additional Questions:
+				- Do different disks/hw with different latencies affect
+				  results?
+				- Do various level caches affect these latencies? (e.g. async
+				  write-back to disk)
+				- Do different w/r sizes work better for AIO/SIO types?
+
+		Questions about go:
+			* Are go's IO green threads sleeping and specifically woken up to
+			  start SIO?
+
+				- If they are sleeping: (I assume so) 
+					- Find cost it takes to wake up a thread.
+
+				- If they are not sleeping:
+					- Puts more pressure on go scheduler to manage when context
+					  switches occur if os threads > hw threads.
+					- More memory might be wasted to keep multiple OS thread
+					  contexts.
+					- Worse cache performance due to context switching,
+					  especially if the go program really is the only program
+					  running (server/service)
+			
+
+		Goal: Confirm or deny our hypothesis that AIO allows better overall
+		utilization of a OS thread. TODO: Needs quantification.
+
+			Understand the "sweet spots" of where AIO outperforms SIO and vice
+			versa.
+
+			Be able to make a suggestion whether further work should be
+			undergone - whether the go scheduler should be modified.
+
+		TODOs:
+
+			* We need to figure out what our idea of "cost" is for performance
+			  hits.
+				- Do we just want to use the same machine and use time
+				  benchmarks?
+				- How are we going to time stuff? Particularly kernel stuff?
+
+			* How are we going to account for extra computation done on
+			  a thread with AIO?
+				- Can test overall completion time of a portion of a program.
+
+			* What task(s) should we benchmark?
+				- Probably can start out with a simple made up parallel
+				  computation first.  but will we need something more realistic
+				  too?
+
 	
 	Mid Level Work:
 
+		(Heavily dependant on early work, very much in flux [unstable])
 
-Future Work:
-    - Linux Green Threads Module - Like FUSE for green thread schedulers
+		Goal: Modify the go green thread scheduler and file IO system to
+			support the same legacy IO interface, but use the linux AIO
+			libraries.
+
+Far Future Work:
+	- Linux Green Threads Module - Like FUSE for green thread schedulers
