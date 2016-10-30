@@ -43,7 +43,7 @@ Project Details:
 		- Go(/Erlang?) scheduling system
 
 
-	Early Work - Quantifying costs:
+	Step 1 - Quantifying Costs:
 
 		Tasks:
 
@@ -88,7 +88,8 @@ Project Details:
 			versa.
 
 			Be able to make a suggestion whether further work should be
-			undergone - whether the go scheduler should be modified.
+			undergone - whether the go scheduler should be profiled for
+			modification.
 
 		TODOs:
 
@@ -107,14 +108,25 @@ Project Details:
 				  computation first.  but will we need something more realistic
 				  too?
 
-	
-	Mid Level Work:
+	(Everything after this point is heavily dependant on early work.)
 
-		(Heavily dependant on early work, very much in flux [unstable])
+	Step 2 - Profiling Go's Current Implementation:
+
+		Goal: Be able to identify particular use cases where AIO might be able
+		to improve the performance of a go application, and where it might
+		still perform worse.
+
+	Step 3 - Modifing Go:
 
 		Goal: Modify the go green thread scheduler and file IO system to
 			support the same legacy IO interface, but use the linux AIO
 			libraries.
+	
+	Step 4 - Profiling Our Implementation:
 
-Far Future Work:
+		Goal: Definitively be able to say when and if our AIO implementation
+		outperforms go's current SIO.
+
+
+Far Far Future Work:
 	- Linux Green Threads Module - Like FUSE for green thread schedulers
