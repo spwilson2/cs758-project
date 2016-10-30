@@ -4,6 +4,7 @@
 - [analysis-go-runtime-scheduler](http://www1.cs.columbia.edu/~aho/cs6998/reports/12-12-11_DeshpandeSponslerWeiss_GO.pdf)
 - [Multicore-scheduling-for-lightweight-communicating-processes](http://csp-consortium.org/apps/Multicore%20Scheduling%20for%20Lightweight%20Communicating%20Processes.pdf)
 - [steal](http://supertech.csail.mit.edu/papers/steal.pdf)
+- [Asynchronous I/O Support in Linux 2.5](https://www.landley.net/kdocs/ols/2003/ols2003-pages-351-366.pdf)
 
 
 ## Articles
