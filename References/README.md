@@ -13,3 +13,4 @@
 - [Goroutines vs OS threads discussion](https://groups.google.com/forum/#!topic/golang-nuts/j51G7ieoKh4)
 - [A retry-base AIO infrastructure](https://lwn.net/Articles/73847/)
 - [Fixing asynchronous I/O, again](https://lwn.net/Articles/671649/)
+- [go routine execution and I/O](https://groups.google.com/forum/#!topic/golang-nuts/Luje-okL4jI)
