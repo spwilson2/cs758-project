@@ -1,10 +1,11 @@
-#include <aio.h>
+#include <libaio.h>
 #include <sys/types.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define SIZE_TO_READ 100
 
@@ -13,38 +14,42 @@ char buffer[SIZE_TO_READ];
 int main()
 {
 	int file = open("aio-example.c", O_RDONLY, 0);
-	
-	if (file == -1)
-	{
-		printf("Unable to open file!\n");
-		return 1;
-	}
-	
-    // Create and fill out AIO control buffer struct
-	struct aiocb cb;
 
-	memset(&cb, 0, sizeof(struct aiocb));
-	cb.aio_nbytes = SIZE_TO_READ;
-	cb.aio_fildes = file;
-	cb.aio_offset = 0;
-	cb.aio_buf = buffer;
+    // Create io_context for the kernel
+    io_context_t ctx;
+    memset(&ctx, 0, sizeof(ctx));
+
+    // Init with max size of request
+    if (io_setup(SIZE_TO_READ, &ctx)) { 
+        printf("io_setup errorn");
+        return 1;
+    }
+
+    // Allocate a struct containing our AIO request info
+    struct iocb *iocb_request;
+    iocb_request = calloc(1, sizeof(struct iocb));
+    
+    // Initialize the request information.
+    io_prep_pread(iocb_request, file, &buffer, SIZE_TO_READ, 0);
+
+    // Submit our request.
+    if (io_submit(ctx, 1, &iocb_request) !=1 ) {
+        io_destroy(ctx);
+        printf("io_submit errorn");
+        return 1;
+    }
 	
-	// read!
-	if (aio_read(&cb) == -1)
-	{
-		printf("Unable to create request!\n");
-		close(file);
-	}
-	
-	// spin until the request finished
-	while(aio_error(&cb) == EINPROGRESS)
-	{
-		printf("Working...\n");
-	}
-	
-	// success?
-	if (aio_return(&cb) != -1)
-		printf("Success!\n");
-	else
-		printf("Error!\n");
+    struct io_event e;
+    struct timespec timeout;
+
+    while(1){
+        timeout.tv_nsec=500000000;//0.5s
+        if(io_getevents(ctx, 0, 1, &e, &timeout)==1){
+            break;
+        }   
+        sleep(1);
+    } 
+
+	printf("%s", buffer);
+    io_destroy(ctx);
 }

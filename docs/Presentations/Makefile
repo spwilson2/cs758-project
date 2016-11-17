@@ -1,5 +1,5 @@
 CC=gcc
-CCFLAGS+=-lrt
+CCFLAGS+=-laio
 TARGETS=aio-example io-example
 .PHONY:all clean
 all: $(TARGETS)
