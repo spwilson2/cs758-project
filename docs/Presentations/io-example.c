@@ -17,7 +17,8 @@ int main()
 		printf("Unable to open file!\n");
 		return 1;
 	}
-
+    
+    // Kernel is free to deschedule us here.
     if(read(file, buffer, SIZE_TO_READ) != -1)
         printf("Success!\n");
     else
