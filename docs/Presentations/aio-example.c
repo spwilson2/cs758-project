@@ -13,7 +13,7 @@ char buffer[SIZE_TO_READ];
 
 int main()
 {
-	int file = open("aio-example.c", O_RDONLY, 0);
+    int file = open("aio-example.c", O_RDONLY, 0);
 
     // Create io_context for the kernel
     io_context_t ctx;
@@ -28,7 +28,7 @@ int main()
     // Allocate a struct containing our AIO request info
     struct iocb *iocb_request;
     iocb_request = calloc(1, sizeof(struct iocb));
-    
+
     // Initialize the request information.
     io_prep_pread(iocb_request, file, &buffer, SIZE_TO_READ, 0);
 
@@ -38,7 +38,7 @@ int main()
         printf("io_submit errorn");
         return 1;
     }
-	
+
     struct io_event e;
     struct timespec timeout;
 
@@ -50,6 +50,6 @@ int main()
         sleep(1);
     } 
 
-	printf("%s", buffer);
+    printf("%s", buffer);
     io_destroy(ctx);
 }
