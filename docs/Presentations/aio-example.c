@@ -42,14 +42,20 @@ int main()
     struct io_event e;
     struct timespec timeout;
 
-    while(1){
+    // Poll waiting for a response to our AIO request
+    while (1) {
         timeout.tv_nsec=500000000;//0.5s
-        if(io_getevents(ctx, 0, 1, &e, &timeout)==1){
-            break;
-        }   
-        sleep(1);
-    } 
 
-    printf("%s", buffer);
+        int poll_val = io_getevents(ctx, 0, 1, &e, &timeout);
+
+        if (poll_val == 1) {
+            printf("Success!\n");
+            break;
+        } else if (poll_val < 0) {
+            printf("Error!\n");
+            break;
+        } else
+            sleep(1);
+    } 
     io_destroy(ctx);
 }
