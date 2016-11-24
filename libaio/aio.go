@@ -25,7 +25,7 @@ const (
 //	}
 //}
 
-func PrepPread(iocb *syscall.Iocb, fd int, buf []byte, count int, offset int64) {
+func PrepPread(iocb *syscall.Iocb, fd int, buf []byte, count uint64, offset int64) {
 
 	// Clear out the iocb
 	//memzero(unsafe.Pointer(iocb), unsafe.Sizeof(iocb))
@@ -35,7 +35,7 @@ func PrepPread(iocb *syscall.Iocb, fd int, buf []byte, count int, offset int64) 
 	iocb.Lio_opcode = CMD_PREAD
 	iocb.Reqprio = 0
 	iocb.Buf = uint64(uintptr(unsafe.Pointer(&buf[0])))
-	iocb.Nbytes = uint64(count)
+	iocb.Nbytes = count
 	iocb.Offset = offset
 
 }
