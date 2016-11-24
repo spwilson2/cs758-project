@@ -1,6 +1,6 @@
 CC=gcc
-CCFLAGS+=-laio
-TARGETS=aio-example io-example
+CCFLAGS+=-laio -ggdb
+TARGETS=aio-example io-example odirect-aio
 .PHONY:all clean
 all: $(TARGETS)
 %:%.c Makefile
