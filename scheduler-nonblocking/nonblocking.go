@@ -102,30 +102,66 @@ func scheduler(c chan Operation) {
 		var iocb syscall.Iocb
 		var iocbp = &iocb
 
+		var offset = false
+
 		switch {
+		case op.Op == READAT:
+			log.Println("READAT: ", op)
+			offset = true
+			fallthrough
 		case op.Op == READ:
-			log.Println("READing: ", op)
+			log.Println("READ: ", op)
+
+			if offset == false {
+				op.Off = 0 // not using offset
+			}
 
 			// begin read
-			aio.PrepPread(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), 0)
+			aio.PrepPread(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
 			chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
+			log.Println("Read submitted, waiting...")
 
 			// check to see if we actually got valid results back
 			var event syscall.IoEvent
 			var timeout syscall.Timespec
 			events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
-			log.Println("Read submitted, waiting...")
 
 			if events <= 0 {
 				chk_err(fail)
 			}
 
-			if string(op.Buf[:len(VALID_STRING)]) != VALID_STRING {
-				log.Printf("Expected %s, found %s\n", VALID_STRING, op.Buf)
-				chk_err(fail)
-			}
+			/*
+				if offset == false && string(op.Buf[:len(VALID_STRING)]) != VALID_STRING {
+					log.Printf("Expected %s, found %s\n", VALID_STRING, op.Buf)
+					chk_err(fail)
+				}
+			*/
 
 			log.Println("Read succeeded... waiting for next op. ")
+
+		case op.Op == WRITEAT:
+			log.Println("WRITEAT: ", op)
+			offset = true
+			fallthrough
+		case op.Op == WRITE:
+			if offset == false {
+				op.Off = 0 //do not use offset
+			}
+
+			log.Println("WRITE: ", op)
+
+			// begin read
+			aio.PrepPwrite(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
+			chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
+			log.Println("Write submitted...")
+
+			// check to see if we actually got valid results back
+			var event syscall.IoEvent
+			var timeout syscall.Timespec
+			events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
+			if events <= 0 {
+				chk_err(fail)
+			}
 
 		default:
 			log.Println("Op not found ", op.Op)
