@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"syscall"
 	"time"
 
 	blocking "github.com/spwilson2/cs758-project/scheduler-blocking"
@@ -18,7 +19,8 @@ func main() {
 	log.Printf("Testing nonblocking")
 	name := "aheh"
 	buf := make([]byte, 100)
-	op := nonblocking.Operation{nonblocking.READ, name, buf, 0}
+	fd, _ := syscall.Open("main.go", syscall.O_RDONLY, 0)
+	op := nonblocking.Operation{nonblocking.READ, fd, name, buf, 0}
 	c := make(chan nonblocking.Operation)
 	nonblocking.InitScheduler(c)
 	c <- op // send the read operation

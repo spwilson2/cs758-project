@@ -3,13 +3,20 @@ package nonblocking
 // Non-blocking IO Scheduler
 
 import (
+	"errors"
 	aio "github.com/spwilson2/cs758-project/libaio"
 	"log"
 	"os"
+	"syscall"
 )
 
 var TestExport int
 var initialized = 0
+
+var fail = errors.New("")
+
+const VALID_STRING string = "package main"
+const TESTFILE string = "aio-example.go"
 
 /* struct and const of Operations for AIO to do */
 const (
@@ -23,9 +30,10 @@ const (
 )
 
 type Operation struct {
-	Op   int
-	Name string // name argument for certain ops
-	Buf  []byte // input or output buffer, depends on op
+	Op   int    // the operation to do (as per consts above)
+	Fd   int    // file descriptor, if doing rd/wr, need this instead
+	Name string // name argument for certain ops (open, openfile, create)
+	Buf  []byte // input (read, readat) or output (write, writeat) buf.
 	Off  int64  // offset, used for READAT, WRITEAT
 }
 
@@ -86,10 +94,42 @@ func scheduler(c chan Operation) {
 
 		// @TODO: Handle operations.
 
+		var ctx syscall.AioContext_t
+
+		// set up AIO
+		chk_err(syscall.IoSetup(1, &ctx)) // 1 == num of AIO in-flight
+		defer chk_err(syscall.IoDestroy(ctx))
+
+		var iocb syscall.Iocb
+		var iocbp = &iocb
+
 		switch {
 		case op.Op == READ:
 			log.Println("READing: ", op)
 			log.Println(aio.CMD_PREAD) // need to compile for now
+
+			// begin read
+			aio.PrepPread(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), 0)
+			chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
+
+			// validate read
+
+			// check to see if we actually got valid results back
+			var event syscall.IoEvent
+			var timeout syscall.Timespec
+			events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
+
+			if events <= 0 {
+				chk_err(fail)
+			}
+
+			if string(op.Buf[:len(VALID_STRING)]) != VALID_STRING {
+				log.Printf("Expected %s, found %s\n", VALID_STRING, op.Buf)
+				chk_err(fail)
+			}
+
+			log.Println("Read succeeded... waiting for next op. ")
+
 		default:
 			log.Println("Op not found ", op.Op)
 		}
