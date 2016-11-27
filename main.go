@@ -19,7 +19,10 @@ func main() {
 	log.Printf("Testing nonblocking")
 	name := "aheh"
 	buf := make([]byte, 100)
-	fd, _ := syscall.Open("main.go", syscall.O_RDONLY, 0)
+	fd, err := syscall.Open("main.go", syscall.O_RDONLY, 0)
+	if err != nil {
+		panic(err)
+	}
 	op := nonblocking.Operation{nonblocking.READ, fd, name, buf, 0}
 	c := make(chan nonblocking.Operation)
 	nonblocking.InitScheduler(c)

@@ -98,7 +98,6 @@ func scheduler(c chan Operation) {
 
 		// set up AIO
 		chk_err(syscall.IoSetup(1, &ctx)) // 1 == num of AIO in-flight
-		defer chk_err(syscall.IoDestroy(ctx))
 
 		var iocb syscall.Iocb
 		var iocbp = &iocb
@@ -106,18 +105,16 @@ func scheduler(c chan Operation) {
 		switch {
 		case op.Op == READ:
 			log.Println("READing: ", op)
-			log.Println(aio.CMD_PREAD) // need to compile for now
 
 			// begin read
 			aio.PrepPread(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), 0)
 			chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
 
-			// validate read
-
 			// check to see if we actually got valid results back
 			var event syscall.IoEvent
 			var timeout syscall.Timespec
 			events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
+			log.Println("Read submitted, waiting...")
 
 			if events <= 0 {
 				chk_err(fail)
@@ -133,6 +130,8 @@ func scheduler(c chan Operation) {
 		default:
 			log.Println("Op not found ", op.Op)
 		}
+
+		chk_err(syscall.IoDestroy(ctx))
 
 	}
 }
