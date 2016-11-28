@@ -37,6 +37,10 @@ type Operation struct {
 	Name string // name argument for certain ops (open, openfile, create)
 	Buf  []byte // input (read, readat) or output (write, writeat) buf.
 	Off  int64  // offset, used for READAT, WRITEAT
+
+	Ret_Valid *bool  // true when operation is done, false otherwise.
+	Ret_N     *int   // return value, you must specify pointer for it to write to.
+	Ret_Err   *error // ^
 }
 
 /* extend os.File so we can actually make our own methods */
@@ -74,11 +78,19 @@ func Write(fd int, p []byte) (n int, err error) {
 	log.Println("WRITE requested, sending to scheduler...")
 
 	// create op and send it to scheduler
-	op := Operation{WRITE, fd, "", p, 0}
+	var ret_valid = new(bool)
+	var ret_n = new(int)
+	var ret_err = new(error)
+
+	op := Operation{WRITE, fd, "", p, 0, ret_valid, ret_n, ret_err}
 	channel <- op
 
-	//TODO: What do we do here?
-	return 1, nil
+	for *ret_valid != true {
+		// spin until ret_err is valid
+	}
+
+	// results now valid, we can return them.
+	return *ret_n, *ret_err
 
 	// orig:
 	//return f.Write(fd, p)
@@ -93,11 +105,19 @@ func WriteAt(fd int, off int, p []byte) (n int, err error) {
 	log.Println("WRITEAT requested, sending to scheduler...")
 
 	// create op and send it to scheduler
-	op := Operation{WRITEAT, fd, "", p, int64(off)}
+	var ret_valid = new(bool)
+	var ret_n = new(int)
+	var ret_err = new(error)
+
+	op := Operation{WRITEAT, fd, "", p, int64(off), ret_valid, ret_n, ret_err}
 	channel <- op
 
-	//TODO: What do we do here?
-	return 1, nil
+	for *ret_valid != true {
+		// spin until ret_err is valid
+	}
+
+	// results now valid, we can return them.
+	return *ret_n, *ret_err
 
 	//return f.Write(fd, p)
 }
@@ -112,11 +132,19 @@ func Read(fd int, p []byte) (n int, err error) {
 	log.Println("READ requested, sending to scheduler...")
 
 	// create op and send it to scheduler
-	op := Operation{READ, fd, "", p, 0}
+	var ret_valid = new(bool)
+	var ret_n = new(int)
+	var ret_err = new(error)
+
+	op := Operation{READ, fd, "", p, 0, ret_valid, ret_n, ret_err}
 	channel <- op
 
-	//TODO: What do we do here?
-	return 1, nil
+	for *ret_valid != true {
+		// spin until ret_err is valid
+	}
+
+	// results now valid, we can return them.
+	return *ret_n, *ret_err
 
 	//return f.Read(fd, p)
 }
@@ -131,11 +159,19 @@ func ReadAt(fd int, off int, p []byte) (n int, err error) {
 	log.Println("READAT requested, sending to scheduler...")
 
 	// create op and send it to scheduler
-	op := Operation{READAT, fd, "", p, int64(off)}
+	var ret_valid = new(bool)
+	var ret_n = new(int)
+	var ret_err = new(error)
+
+	op := Operation{READAT, fd, "", p, int64(off), ret_valid, ret_n, ret_err}
 	channel <- op
 
-	//TODO: What do we do here?
-	return 1, nil
+	for *ret_valid != true {
+		// spin until ret_err is valid
+	}
+
+	// results now valid, we can return them.
+	return *ret_n, *ret_err
 
 	//return f.Read(fd, p)
 }
@@ -223,6 +259,11 @@ func scheduler(c chan Operation) {
 				}
 			*/
 
+			// set return vals
+			*(op.Ret_N) = events
+			*(op.Ret_Err) = nil
+			*(op.Ret_Valid) = true
+
 			log.Println("Read succeeded... waiting for next op. ")
 
 		case op.Op == WRITEAT:
@@ -248,6 +289,13 @@ func scheduler(c chan Operation) {
 			if events <= 0 {
 				chk_err(fail)
 			}
+
+			// set return vals
+			*(op.Ret_N) = events
+			*(op.Ret_Err) = nil
+			*(op.Ret_Valid) = true
+
+			log.Println("Write successful in scheduler")
 
 		default:
 			log.Println("Op not found ", op.Op)
