@@ -17,17 +17,32 @@ func main() {
 
 	// initialize scheduler
 	log.Printf("Testing nonblocking")
-	name := "aheh"
-	buf := make([]byte, 100)
-	fd, err := syscall.Open("main.go", syscall.O_RDONLY, 0)
-	if err != nil {
-		panic(err)
-	}
-	op := nonblocking.Operation{nonblocking.READ, fd, name, buf, 0}
 	c := make(chan nonblocking.Operation)
 	nonblocking.InitScheduler(c)
-	c <- op // send the read operation
+
+	// send various operations to scheduler
+	name := "hello.txt"
+	buf := make([]byte, 100)
+	off := 0
+	fd, _ := nonblocking.Open(name, syscall.O_RDWR, 0)
+
+	// READ
+	nonblocking.Read(fd, buf)
 	time.Sleep(2 * time.Second)
-	c <- op // send another read
+
+	// READAT
+	nonblocking.ReadAt(fd, off, buf)
 	time.Sleep(2 * time.Second)
+
+	// WRITE
+	buf = []byte("World Hello")
+	nonblocking.Write(fd, buf)
+	time.Sleep(2 * time.Second)
+
+	// WRITEAT
+	buf = []byte("World")
+	off = 5
+	nonblocking.WriteAt(fd, off, buf)
+	time.Sleep(2 * time.Second)
+
 }

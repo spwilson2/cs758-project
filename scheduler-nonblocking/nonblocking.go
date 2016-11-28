@@ -11,7 +11,8 @@ import (
 )
 
 var TestExport int
-var initialized = 0
+var initialized = false
+var channel chan Operation
 
 var fail = errors.New("")
 
@@ -65,112 +66,76 @@ func OpenFile(path string) (fd int, err error) {
 
 /* Writes p to file opened w/  fd */
 func Write(fd int, p []byte) (n int, err error) {
-	ctx, err := GetCtx(CTX_SIZE)
-	chk_err(err)
-
-	var iocb syscall.Iocb
-	var iocbp = &iocb
-
-	log.Printf("WRITE; fd: %d buf: %s\n ", fd, p)
-	aio.PrepPwrite(iocbp, fd, p, uint64(len(p)), 0)
-	chk_err(syscall.IoSubmit(*ctx, 1, &iocbp))
-	log.Println("Write submitted...")
-
-	var event syscall.IoEvent
-	var timeout syscall.Timespec
-
-	events := syscall.IoGetevents(*ctx, 1, 1, &event, &timeout)
-	if events <= 0 {
-		chk_err(fail)
+	// make sure sched is running
+	if initialized != true {
+		panic("Scheduler not initialized...")
 	}
 
-	log.Println("Write Succeeded!")
+	log.Println("WRITE requested, sending to scheduler...")
 
-	return events, nil
+	// create op and send it to scheduler
+	op := Operation{WRITE, fd, "", p, 0}
+	channel <- op
+
+	//TODO: What do we do here?
+	return 1, nil
 
 	// orig:
 	//return f.Write(fd, p)
 }
 
 func WriteAt(fd int, off int, p []byte) (n int, err error) {
-	ctx, err := GetCtx(CTX_SIZE)
-	chk_err(err)
-
-	var iocb syscall.Iocb
-	var iocbp = &iocb
-
-	log.Printf("WRITEAT; fd: %d offset: %d buf: %s\n ", fd, off, p)
-	aio.PrepPwrite(iocbp, fd, p, uint64(len(p)), int64(off))
-	chk_err(syscall.IoSubmit(*ctx, 1, &iocbp))
-	log.Println("WRITEAT submitted...")
-
-	var event syscall.IoEvent
-	var timeout syscall.Timespec
-
-	events := syscall.IoGetevents(*ctx, 1, 1, &event, &timeout)
-	if events <= 0 {
-		chk_err(fail)
+	// make sure sched is running
+	if initialized != true {
+		panic("Scheduler not initialized...")
 	}
 
-	log.Println("WRITEAT succeeded!")
+	log.Println("WRITEAT requested, sending to scheduler...")
 
-	return events, nil
+	// create op and send it to scheduler
+	op := Operation{WRITEAT, fd, "", p, int64(off)}
+	channel <- op
+
+	//TODO: What do we do here?
+	return 1, nil
 
 	//return f.Write(fd, p)
 }
 
 /* Reads from file */
 func Read(fd int, p []byte) (n int, err error) {
-	ctx, err := GetCtx(CTX_SIZE)
-	chk_err(err)
-
-	var iocb syscall.Iocb
-	var iocbp = &iocb
-
-	log.Printf("READ; fd: %d\n ", fd)
-	aio.PrepPread(iocbp, fd, p, uint64(len(p)), 0)
-	chk_err(syscall.IoSubmit(*ctx, 1, &iocbp))
-	log.Println("READ submitted...")
-
-	var event syscall.IoEvent
-	var timeout syscall.Timespec
-
-	events := syscall.IoGetevents(*ctx, 1, 1, &event, &timeout)
-	if events <= 0 {
-		chk_err(fail)
+	// make sure sched is running
+	if initialized != true {
+		panic("Scheduler not initialized...")
 	}
 
-	log.Println("READ succeeded!")
+	log.Println("READ requested, sending to scheduler...")
 
-	return events, nil
+	// create op and send it to scheduler
+	op := Operation{READ, fd, "", p, 0}
+	channel <- op
+
+	//TODO: What do we do here?
+	return 1, nil
 
 	//return f.Read(fd, p)
 }
 
 /* Read from file, at offset off */
 func ReadAt(fd int, off int, p []byte) (n int, err error) {
-	ctx, err := GetCtx(CTX_SIZE)
-	chk_err(err)
-
-	var iocb syscall.Iocb
-	var iocbp = &iocb
-
-	log.Printf("READAT; fd: %d offset: %d\n ", fd, off)
-	aio.PrepPread(iocbp, fd, p, uint64(len(p)), int64(off))
-	chk_err(syscall.IoSubmit(*ctx, 1, &iocbp))
-	log.Println("READAT submitted...")
-
-	var event syscall.IoEvent
-	var timeout syscall.Timespec
-
-	events := syscall.IoGetevents(*ctx, 1, 1, &event, &timeout)
-	if events <= 0 {
-		chk_err(fail)
+	// make sure sched is running
+	if initialized != true {
+		panic("Scheduler not initialized...")
 	}
 
-	log.Println("READAT succeeded!")
+	log.Println("READAT requested, sending to scheduler...")
 
-	return events, nil
+	// create op and send it to scheduler
+	op := Operation{READAT, fd, "", p, int64(off)}
+	channel <- op
+
+	//TODO: What do we do here?
+	return 1, nil
 
 	//return f.Read(fd, p)
 }
@@ -299,11 +264,12 @@ func scheduler(c chan Operation) {
 func InitScheduler(c chan Operation) {
 
 	// scheduler was already initialized, ignore this call
-	if initialized != 0 {
+	if initialized != false {
 		return
 	}
 
 	// set up goroutine for scheduler to run, with the passed channel
+	channel = c // global state
 	go scheduler(c)
-	initialized = 1
+	initialized = true
 }
