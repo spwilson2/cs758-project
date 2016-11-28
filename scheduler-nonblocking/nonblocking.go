@@ -15,6 +15,7 @@ var initialized = 0
 
 var fail = errors.New("")
 
+const CTX_SIZE = 10
 const VALID_STRING string = "package main"
 const TESTFILE string = "aio-example.go"
 
@@ -51,33 +52,127 @@ func chk_err(err error) {
 }
 
 /* opens file  */
-func Open(name string) (*os.File, error) {
-	return os.Open(name)
+func Open(path string, mode int, perm uint32) (fd int, err error) {
+	return syscall.Open(path, mode, perm)
 }
 
-/* opens file w/ specified perms and flags*/
-func OpenFile(name string, flag int, perm os.FileMode) (*os.File, error) {
-	return os.OpenFile(name, flag, perm)
+/* opens file w/ default params */
+func OpenFile(path string) (fd int, err error) {
+	mode := syscall.O_RDWR
+	perm := uint32(0)
+	return syscall.Open(path, mode, perm)
 }
 
 /* Writes p to file opened w/  fd */
-func (f *File) Write(b []byte) (int, error) {
-	return f.Write(b)
+func Write(fd int, p []byte) (n int, err error) {
+	ctx, err := GetCtx(CTX_SIZE)
+	chk_err(err)
+
+	var iocb syscall.Iocb
+	var iocbp = &iocb
+
+	log.Printf("WRITE; fd: %d buf: %s\n ", fd, p)
+	aio.PrepPwrite(iocbp, fd, p, uint64(len(p)), 0)
+	chk_err(syscall.IoSubmit(*ctx, 1, &iocbp))
+	log.Println("Write submitted...")
+
+	var event syscall.IoEvent
+	var timeout syscall.Timespec
+
+	events := syscall.IoGetevents(*ctx, 1, 1, &event, &timeout)
+	if events <= 0 {
+		chk_err(fail)
+	}
+
+	log.Println("Write Succeeded!")
+
+	return events, nil
+
+	// orig:
+	//return f.Write(fd, p)
 }
 
-/* Writes to a specific byte of a file */
-func (f *File) WriteAt(b []byte, off int64) (int, error) {
-	return f.WriteAt(b, off)
+func WriteAt(fd int, off int, p []byte) (n int, err error) {
+	ctx, err := GetCtx(CTX_SIZE)
+	chk_err(err)
+
+	var iocb syscall.Iocb
+	var iocbp = &iocb
+
+	log.Printf("WRITEAT; fd: %d offset: %d buf: %s\n ", fd, off, p)
+	aio.PrepPwrite(iocbp, fd, p, uint64(len(p)), int64(off))
+	chk_err(syscall.IoSubmit(*ctx, 1, &iocbp))
+	log.Println("WRITEAT submitted...")
+
+	var event syscall.IoEvent
+	var timeout syscall.Timespec
+
+	events := syscall.IoGetevents(*ctx, 1, 1, &event, &timeout)
+	if events <= 0 {
+		chk_err(fail)
+	}
+
+	log.Println("WRITEAT succeeded!")
+
+	return events, nil
+
+	//return f.Write(fd, p)
 }
 
 /* Reads from file */
-func (f *File) Read(b []byte) (int, error) {
-	return f.Read(b)
+func Read(fd int, p []byte) (n int, err error) {
+	ctx, err := GetCtx(CTX_SIZE)
+	chk_err(err)
+
+	var iocb syscall.Iocb
+	var iocbp = &iocb
+
+	log.Printf("READ; fd: %d\n ", fd)
+	aio.PrepPread(iocbp, fd, p, uint64(len(p)), 0)
+	chk_err(syscall.IoSubmit(*ctx, 1, &iocbp))
+	log.Println("READ submitted...")
+
+	var event syscall.IoEvent
+	var timeout syscall.Timespec
+
+	events := syscall.IoGetevents(*ctx, 1, 1, &event, &timeout)
+	if events <= 0 {
+		chk_err(fail)
+	}
+
+	log.Println("READ succeeded!")
+
+	return events, nil
+
+	//return f.Read(fd, p)
 }
 
 /* Read from file, at offset off */
-func (f *File) ReadAt(b []byte, off int64) (int, error) {
-	return f.ReadAt(b, off)
+func ReadAt(fd int, off int, p []byte) (n int, err error) {
+	ctx, err := GetCtx(CTX_SIZE)
+	chk_err(err)
+
+	var iocb syscall.Iocb
+	var iocbp = &iocb
+
+	log.Printf("READAT; fd: %d offset: %d\n ", fd, off)
+	aio.PrepPread(iocbp, fd, p, uint64(len(p)), int64(off))
+	chk_err(syscall.IoSubmit(*ctx, 1, &iocbp))
+	log.Println("READAT submitted...")
+
+	var event syscall.IoEvent
+	var timeout syscall.Timespec
+
+	events := syscall.IoGetevents(*ctx, 1, 1, &event, &timeout)
+	if events <= 0 {
+		chk_err(fail)
+	}
+
+	log.Println("READAT succeeded!")
+
+	return events, nil
+
+	//return f.Read(fd, p)
 }
 
 /* Create file */
@@ -85,8 +180,34 @@ func Create(name string) (*os.File, error) {
 	return os.Create(name)
 }
 
-/* Scheduler function, reads op from channel and does it */
+/* reference counting for context */
+type Context struct {
+	ctx        syscall.AioContext_t
+	references uint
+	maxsize    uint
+}
 
+var currentCtx Context
+
+/* setup context for aio, manages as reference counter */
+func GetCtx(num uint) (*syscall.AioContext_t, error) {
+	// check if we have any more slots remaining in this context
+	if currentCtx.references+num >= currentCtx.maxsize {
+		log.Printf("GetCtx, have %d references so far\n", currentCtx.references)
+		currentCtx.references += num
+		return &currentCtx.ctx, nil
+	} else {
+		log.Printf("GetCtx, current ctx at %d capacity. Adding new ctx with %d capacity:\n", currentCtx.maxsize, num)
+		var ctx syscall.AioContext_t
+		chk_err(syscall.IoSetup(num, &ctx))
+		currentCtx.ctx = ctx
+		currentCtx.references = 0
+		currentCtx.maxsize = num * 2
+		return &currentCtx.ctx, nil
+	}
+}
+
+/* Scheduler function, reads op from channel and does it */
 func scheduler(c chan Operation) {
 	for {
 		op := <-c
