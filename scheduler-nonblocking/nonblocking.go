@@ -178,8 +178,8 @@ func ReadAt(fd int, off int, p []byte) (n int, err error) {
 }
 
 /* Create file */
-func Create(name string) (*os.File, error) {
-	return os.Create(name)
+func Creat(path string, mode uint32) (fd int, err error) {
+	return syscall.Creat(path, mode)
 }
 
 /* reference counting for context */
