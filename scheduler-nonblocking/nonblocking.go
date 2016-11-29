@@ -213,7 +213,7 @@ func GetCtx(num uint) (*syscall.AioContext_t, error) {
 func scheduler(c chan Operation) {
 	for {
 		op := <-c
-		log.Println("Received operation: ", op)
+		log.Println("Received operation: ", op.Op)
 
 		// @TODO: Handle operations.
 
