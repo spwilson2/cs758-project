@@ -4,10 +4,11 @@ package nonblocking
 
 import (
 	"errors"
-	aio "github.com/spwilson2/cs758-project/libaio"
 	"log"
 	"os"
 	"syscall"
+
+	aio "github.com/spwilson2/cs758-project/libaio"
 )
 
 var TestExport int

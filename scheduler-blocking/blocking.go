@@ -2,52 +2,11 @@ package blocking
 
 // blocking IO Scheduler
 
-import (
-	"errors"
-	aio "github.com/spwilson2/cs758-project/libaio"
-	"log"
-	"os"
-	"syscall"
-)
-
-var TestExport int
-var initialized = 0
-
-var fail = errors.New("")
-
-const VALID_STRING string = "package main"
-const TESTFILE string = "aio-example.go"
-
-/* struct and const of Operations for AIO to do */
-const (
-	WRITE    int = 0
-	WRITEAT  int = 1
-	READ     int = 2
-	READAT   int = 3
-	CREATE   int = 4
-	OPEN     int = 5
-	OPENFILE int = 6
-)
-
-type Operation struct {
-	Op   int    // the operation to do (as per consts above)
-	Fd   int    // file descriptor, if doing rd/wr, need this instead
-	Name string // name argument for certain ops (open, openfile, create)
-	Buf  []byte // input (read, readat) or output (write, writeat) buf.
-	Off  int64  // offset, used for READAT, WRITEAT
-}
+import "os"
 
 /* extend os.File so we can actually make our own methods */
 type File struct {
 	os.File
-}
-
-/* easily check for errors and panic */
-func chk_err(err error) {
-	if err != nil {
-		log.Printf("(FAILED) %s\n", os.Args[0])
-		panic(err) //os.Exit(-1)
-	}
 }
 
 /* opens file  */
@@ -83,106 +42,4 @@ func (f *File) ReadAt(b []byte, off int64) (int, error) {
 /* Create file */
 func Create(name string) (*os.File, error) {
 	return os.Create(name)
-}
-
-/* Scheduler function, reads op from channel and does it */
-
-func scheduler(c chan Operation) {
-	for {
-		op := <-c
-		log.Println("Received operation: ", op)
-
-		// @TODO: Handle operations.
-
-		var ctx syscall.AioContext_t
-
-		// set up AIO
-		chk_err(syscall.IoSetup(1, &ctx)) // 1 == num of AIO in-flight
-
-		var iocb syscall.Iocb
-		var iocbp = &iocb
-
-		var offset = false
-
-		switch {
-		case op.Op == READAT:
-			log.Println("READAT: ", op)
-			offset = true
-			fallthrough
-		case op.Op == READ:
-			log.Println("READ: ", op)
-
-			if offset == false {
-				op.Off = 0 // not using offset
-			}
-
-			// begin read
-			aio.PrepPread(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
-			chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
-			log.Println("Read submitted, waiting...")
-
-			// check to see if we actually got valid results back
-			var event syscall.IoEvent
-			var timeout syscall.Timespec
-			events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
-
-			if events <= 0 {
-				chk_err(fail)
-			}
-
-			/*
-				if offset == false && string(op.Buf[:len(VALID_STRING)]) != VALID_STRING {
-					log.Printf("Expected %s, found %s\n", VALID_STRING, op.Buf)
-					chk_err(fail)
-				}
-			*/
-
-			log.Println("Read succeeded... waiting for next op. ")
-
-		case op.Op == WRITEAT:
-			log.Println("WRITEAT: ", op)
-			offset = true
-			fallthrough
-		case op.Op == WRITE:
-			if offset == false {
-				op.Off = 0 //do not use offset
-			}
-
-			log.Println("WRITE: ", op)
-
-			// begin read
-			aio.PrepPwrite(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
-			chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
-			log.Println("Write submitted...")
-
-			// check to see if we actually got valid results back
-			var event syscall.IoEvent
-			var timeout syscall.Timespec
-			events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
-			if events <= 0 {
-				chk_err(fail)
-			}
-
-		default:
-			log.Println("Op not found ", op.Op)
-		}
-
-		chk_err(syscall.IoDestroy(ctx))
-
-	}
-}
-
-/*
-   Called once upon creation, stays running and reading from channel for directions on what to do
-*/
-func InitScheduler(c chan Operation) {
-
-	// scheduler was already initialized, ignore this call
-	if initialized != 0 {
-		return
-	}
-
-	// set up goroutine for scheduler to run, with the passed channel
-	go scheduler(c)
-	initialized = 1
 }
