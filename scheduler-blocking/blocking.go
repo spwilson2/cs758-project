@@ -7,8 +7,6 @@ import (
 	"log"
 	"os"
 	"syscall"
-
-	aio "github.com/spwilson2/cs758-project/libaio"
 )
 
 var TestExport int
@@ -227,7 +225,7 @@ func scheduler(c chan Operation) {
 
 			if offset == true {
 				// 0 == SEEK_SET (from beginning)
-				syscall.Seek(op.Fd, op.Offset, 0)
+				syscall.Seek(op.Fd, op.Off, 0)
 			}
 
 			// begin read
@@ -252,7 +250,7 @@ func scheduler(c chan Operation) {
 
 			if offset == true {
 				// 0 == SEEK_SET (from beginning)
-				syscall.Seek(op.Fd, op.Offset, 0)
+				syscall.Seek(op.Fd, op.Off, 0)
 			}
 
 			// begin write
@@ -272,8 +270,6 @@ func scheduler(c chan Operation) {
 		default:
 			//log.Println("Op not found ", op.Op)
 		}
-
-		chk_err(syscall.IoDestroy(ctx))
 
 	}
 }
