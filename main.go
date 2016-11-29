@@ -1,7 +1,9 @@
 package main
 
 import (
-	"log"
+	"flag"
+	"fmt"
+	"os"
 	"syscall"
 	"time"
 
@@ -11,101 +13,197 @@ import (
 
 func main() {
 
-	//runtime.GOMAXPROCS(2)
+	initSchedulers()
 
-	log.Printf("Performing nonblocking IO benchmark tests\n")
+	//runtime.GOMAXPROCS(2)
+	flags, opSize := parseArgs()
+
+	// Run Sequential Blocking Write Benchmark
+	if *flags[0] {
+		fmt.Printf("Running Sequential Blocking Write Benchmark\n")
+		performSequentialBlockingWriteBenchmarks(*opSize)
+	}
+
+	// Run Sequential Blocking Read Benchmark
+	if *flags[1] {
+		fmt.Printf("Running Sequential Blocking Read Benchmark\n")
+		performSequentialBlockingReadBenchmarks(*opSize)
+	}
+
+	// Run Random Blocking Write Benchmark
+	if *flags[2] {
+		fmt.Printf("Running Random Blocking Write Benchmark\n")
+		performRandomBlockingWriteBenchmarks(*opSize)
+	}
+
+	// Run Random Blocking Read Benchmark
+	if *flags[3] {
+		fmt.Printf("Running Random Blocking Read Benchmark\n")
+		performRandomBlockingReadBenchmarks(*opSize)
+	}
+
+	// Run Sequential Nonblocking Write Benchmark
+	if *flags[4] {
+		fmt.Printf("Running Sequential Nonblocking Write Benchmark\n")
+		performSequentialAsyncWriteBenchmarks(*opSize)
+	}
+	// Run Sequential Nonblocking Read Benchmark
+	if *flags[5] {
+		fmt.Printf("Running Sequential Nonblocking Read Benchmark\n")
+		performSequentialAsyncReadBenchmarks(*opSize)
+	}
+
+	// Run Random Nonblocking Write Benchmark
+	if *flags[6] {
+		fmt.Printf("Running Random Nonblocking Write Benchmark\n")
+		performRandomAsyncWriteBenchmarks(*opSize)
+	}
+
+	// Run Random Nonblocking Write Benchmark
+	if *flags[7] {
+		fmt.Printf("Running Random Nonblocking Read Benchmark\n")
+		performRandomAsyncReadBenchmarks(*opSize)
+	}
+
+}
+
+func parseArgs() ([]*bool, *int) {
+	flags := make([]*bool, 8)
+
+	flags[0] = flag.Bool("SBW", false, "Should run the sequential blocking write benchmark")
+	flags[1] = flag.Bool("SBR", false, "Should run the sequential blocking read benchmark")
+	flags[2] = flag.Bool("RBW", false, "Should run the random blocking write benchmark")
+	flags[3] = flag.Bool("RBR", false, "Should run the random blocking read benchmark")
+
+	flags[4] = flag.Bool("SAW", false, "Should run the sequential nonblocking write benchmark")
+	flags[5] = flag.Bool("SAR", false, "Should run the sequential nonblocking read benchmark")
+	flags[6] = flag.Bool("RAW", false, "Should run the random nonblocking write benchmark")
+	flags[7] = flag.Bool("RAR", false, "Should run the random nonblocking read benchmark")
+
+	var opSize = flag.Int("size", 1000, "The size of the reads and/or writes to be performed")
+
+	flag.Parse()
+
+	return flags, opSize
+}
+
+func initSchedulers() {
+	fmt.Printf("Initializing nonblocking IO scheduler\n")
 	nonblockingChan := make(chan nonblocking.Operation)
 	nonblocking.InitScheduler(nonblockingChan)
-	performAsyncBenchmarks()
 
-	log.Printf("Performing blocking IO benchmark tests\n")
-	performBlockingBenchmarks()
+	fmt.Printf("Initializing blocking IO scheduler\n")
+	blockingChan := make(chan blocking.Operation)
+	blocking.InitScheduler(blockingChan)
 }
 
-func performBlockingBenchmarks() {
-	performSequentialBlockingWriteBenchmarks()
-	performSequentialBlockingReadBenchmarks()
-	performRandomBlockingWriteBenchmarks()
-	performRandomBlockingReadBenchmarks()
-}
-
-func performAsyncBenchmarks() {
-	performSequentialAsyncWriteBenchmarks()
-	performSequentialAsyncReadBenchmarks()
-	performRandomAsyncWriteBenchmarks()
-	performRandomAsyncReadBenchmarks()
-}
-
-func performSequentialBlockingWriteBenchmarks() {
+func performSequentialBlockingWriteBenchmarks(opSize int) {
 	name := "SBW.txt"
-	buf := make([]byte, 1000)
-	for i := 0; i < 1000; i++ {
+	buf := make([]byte, opSize)
+	for i := 0; i < opSize; i++ {
 		buf[i] = byte(i)
 	}
 
-	blocking.Create(name)
-	file, err := blocking.Open(name)
+	blocking.Creat(name, syscall.S_IRUSR|syscall.S_IWUSR)
+	fd, err := blocking.Open(name, syscall.O_RDWR, 0)
 	if err != nil {
-		log.Printf("error opening file\n")
+		fmt.Fprintf(os.Stderr, "error opening file\n")
 	}
 
-	defer un(trace("SBW"))
-	off := int64(0)
-	for i := 0; i < 10; i++ {
-		file.WriteAt(buf, off)
-		off += 1000
+	for off := 0; off < opSize; off += 100 {
+		scheduleBlockingWriteAt(fmt.Sprint("SBW @ ", off), fd, off, buf)
 	}
 }
 
-func performSequentialBlockingReadBenchmarks() {
-	//defer un(trace("SBR"))
+func performSequentialBlockingReadBenchmarks(opSize int) {
+	defer un(trace("SBR"))
 }
 
-func performSequentialAsyncWriteBenchmarks() {
+func performSequentialAsyncWriteBenchmarks(opSize int) {
 	name := "SAW.txt"
-	buf := make([]byte, 1000)
-	for i := 0; i < 1000; i++ {
+	buf := make([]byte, opSize)
+	for i := 0; i < opSize; i++ {
 		buf[i] = byte(i)
 	}
 
-	nonblocking.Create(name)
+	nonblocking.Creat(name, syscall.S_IRUSR|syscall.S_IWUSR)
 	fd, err := nonblocking.Open(name, syscall.O_RDWR, 0)
 	if err != nil {
-		log.Printf("error opening file\n")
+		fmt.Fprintf(os.Stderr, "error opening file\n")
 	}
 
-	defer un(trace("SAW"))
-
-	off := 0
-	for i := 0; i < 10; i++ {
-		nonblocking.WriteAt(fd, off, buf)
-		off += 100
+	for off := 0; off < opSize; off += 100 {
+		scheduleNonblockingWriteAt(fmt.Sprint("SAW @ ", off), fd, off, buf)
 	}
 }
 
-func performSequentialAsyncReadBenchmarks() {
-	//defer un(trace("SAR"))
+func performSequentialAsyncReadBenchmarks(opSize int) {
+	defer un(trace("SAR"))
 }
 
-func performRandomBlockingWriteBenchmarks() {
-	//defer un(trace("RBW"))
+func performRandomBlockingWriteBenchmarks(opSize int) {
+	defer un(trace("RBW"))
 }
 
-func performRandomBlockingReadBenchmarks() {
-	//defer un(trace("RBR"))
+func performRandomBlockingReadBenchmarks(opSize int) {
+	defer un(trace("RBR"))
 }
 
-func performRandomAsyncWriteBenchmarks() {
-	//defer un(trace("RAW"))
+func performRandomAsyncWriteBenchmarks(opSize int) {
+	defer un(trace("RAW"))
 }
 
-func performRandomAsyncReadBenchmarks() {
-	//defer un(trace("RAR"))
+func performRandomAsyncReadBenchmarks(opSize int) {
+	defer un(trace("RAR"))
+}
+
+/*
+	Helper functions for scheduling blocking and non blocking operations
+*/
+
+func scheduleBlockingWrite(id string, fd int, buf []byte) {
+	defer un(trace(id))
+	blocking.Write(fd, buf)
+}
+
+func scheduleBlockingWriteAt(id string, fd int, off int, buf []byte) {
+	defer un(trace(id))
+	blocking.WriteAt(fd, off, buf)
+}
+
+func scheduleBlockingRead(id string, fd int, buf []byte) {
+	defer un(trace(id))
+	blocking.Read(fd, buf)
+}
+
+func scheduleBlockingReadAt(id string, fd int, off int, buf []byte) {
+	defer un(trace(id))
+	blocking.ReadAt(fd, off, buf)
+}
+
+func scheduleNonblockingWrite(id string, fd int, buf []byte) {
+	defer un(trace(id))
+	nonblocking.Write(fd, buf)
+}
+
+func scheduleNonblockingWriteAt(id string, fd int, off int, buf []byte) {
+	defer un(trace(id))
+	nonblocking.WriteAt(fd, off, buf)
+}
+
+func scheduleNonblockingRead(id string, fd int, buf []byte) {
+	defer un(trace(id))
+	nonblocking.Read(fd, buf)
+}
+
+func scheduleNonblockingReadAt(id string, fd int, off int, buf []byte) {
+	defer un(trace(id))
+	nonblocking.ReadAt(fd, off, buf)
 }
 
 /*
 	These functions can be used together to benchmark a functions. Simply provide
-	a unique identifier that is used for logging when calling the functions using
+	a unique identifier that is used for fmtging when calling the functions using
 	the defer keyword:
 	e.g. defer un(trace("testId"))
 	Basically, the nested function trace() is called immediately and that grabs
@@ -116,42 +214,14 @@ func performRandomAsyncReadBenchmarks() {
 */
 
 func trace(id string) (string, time.Time) {
-	log.Printf("Benchmarking: %s", id)
+	//fmt.Printf("%s Benchmark running\n", id)
 	start := time.Now()
 	return id, start
 }
 
 func un(id string, start time.Time) time.Duration {
 	elapsed := time.Since(start)
-	log.Printf("%s completed in %d nanoseconds\n\n", id, elapsed.Nanoseconds())
+	//fmt.Printf("%s Benchmark complete\n", id)
+	fmt.Printf("%d nanoseconds\n\n", elapsed.Nanoseconds())
 	return elapsed
 }
-
-// func main() {
-
-// send various operations to scheduler
-// name := "hello.txt"
-// buf := make([]byte, 100)
-// off := 0
-// fd, _ := nonblocking.Open(name, syscall.O_RDWR, 0)
-
-// // READ
-// nonblocking.Read(fd, buf)
-// time.Sleep(2 * time.Second)
-
-// // READAT
-// nonblocking.ReadAt(fd, off, buf)
-// time.Sleep(2 * time.Second)
-
-// // WRITE
-// buf = []byte("World Hello")
-// nonblocking.Write(fd, buf)
-// time.Sleep(2 * time.Second)
-
-// // WRITEAT
-// buf = []byte("World")
-// off = 5
-// nonblocking.WriteAt(fd, off, buf)
-// time.Sleep(2 * time.Second)
-
-//}
