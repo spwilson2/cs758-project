@@ -64,7 +64,6 @@ func main() {
 		fmt.Printf("Running Random Nonblocking Read Benchmark\n")
 		performRandomAsyncReadBenchmarks(*opSize)
 	}
-
 }
 
 func parseArgs() ([]*bool, *int) {
