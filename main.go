@@ -19,6 +19,8 @@ func main() {
 	performAsyncBenchmarks()
 
 	log.Printf("Performing blocking IO benchmark tests\n")
+	blockingChan := make(chan blocking.Operation)
+	blocking.InitScheduler(blockingChan)
 	performBlockingBenchmarks()
 }
 
@@ -43,16 +45,16 @@ func performSequentialBlockingWriteBenchmarks() {
 		buf[i] = byte(i)
 	}
 
-	blocking.Create(name)
-	file, err := blocking.Open(name)
+	//blocking.Creat(name, syscall.O_RDWR) // do not need
+	fd, err := blocking.OpenFile(name)
 	if err != nil {
 		log.Printf("error opening file\n")
 	}
 
 	defer un(trace("SBW"))
-	off := int64(0)
+	off := 0
 	for i := 0; i < 10; i++ {
-		file.WriteAt(buf, off)
+		blocking.WriteAt(fd, off, buf)
 		off += 1000
 	}
 }
@@ -68,7 +70,7 @@ func performSequentialAsyncWriteBenchmarks() {
 		buf[i] = byte(i)
 	}
 
-	nonblocking.Create(name)
+	//nonblocking.Create(name) //do not need
 	fd, err := nonblocking.Open(name, syscall.O_RDWR, 0)
 	if err != nil {
 		log.Printf("error opening file\n")
