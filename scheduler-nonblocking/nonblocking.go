@@ -76,7 +76,7 @@ func Write(fd int, p []byte) (n int, err error) {
 		panic("Scheduler not initialized...")
 	}
 
-	log.Println("WRITE requested, sending to scheduler...")
+	//log.Println("WRITE requested, sending to scheduler...")
 
 	// create op and send it to scheduler
 	var ret_valid = new(bool)
@@ -103,7 +103,7 @@ func WriteAt(fd int, off int, p []byte) (n int, err error) {
 		panic("Scheduler not initialized...")
 	}
 
-	log.Println("WRITEAT requested, sending to scheduler...")
+	//log.Println("WRITEAT requested, sending to scheduler...")
 
 	// create op and send it to scheduler
 	var ret_valid = new(bool)
@@ -130,7 +130,7 @@ func Read(fd int, p []byte) (n int, err error) {
 		panic("Scheduler not initialized...")
 	}
 
-	log.Println("READ requested, sending to scheduler...")
+	//log.Println("READ requested, sending to scheduler...")
 
 	// create op and send it to scheduler
 	var ret_valid = new(bool)
@@ -157,7 +157,7 @@ func ReadAt(fd int, off int, p []byte) (n int, err error) {
 		panic("Scheduler not initialized...")
 	}
 
-	log.Println("READAT requested, sending to scheduler...")
+	//log.Println("READAT requested, sending to scheduler...")
 
 	// create op and send it to scheduler
 	var ret_valid = new(bool)
@@ -195,11 +195,11 @@ var currentCtx Context
 func GetCtx(num uint) (*syscall.AioContext_t, error) {
 	// check if we have any more slots remaining in this context
 	if currentCtx.references+num >= currentCtx.maxsize {
-		log.Printf("GetCtx, have %d references so far\n", currentCtx.references)
+		//log.Printf("GetCtx, have %d references so far\n", currentCtx.references)
 		currentCtx.references += num
 		return &currentCtx.ctx, nil
 	} else {
-		log.Printf("GetCtx, current ctx at %d capacity. Adding new ctx with %d capacity:\n", currentCtx.maxsize, num)
+		//log.Printf("GetCtx, current ctx at %d capacity. Adding new ctx with %d capacity:\n", currentCtx.maxsize, num)
 		var ctx syscall.AioContext_t
 		chk_err(syscall.IoSetup(num, &ctx))
 		currentCtx.ctx = ctx
@@ -213,7 +213,7 @@ func GetCtx(num uint) (*syscall.AioContext_t, error) {
 func scheduler(c chan Operation) {
 	for {
 		op := <-c
-		log.Println("Received operation: ", op.Op)
+		//log.Println("Received operation: ", op.Op)
 
 		// @TODO: Handle operations.
 
@@ -229,11 +229,11 @@ func scheduler(c chan Operation) {
 
 		switch {
 		case op.Op == READAT:
-			log.Println("READAT: ", op)
+			//log.Println("READAT: ", op)
 			offset = true
 			fallthrough
 		case op.Op == READ:
-			log.Println("READ: ", op)
+			//log.Println("READ: ", op)
 
 			if offset == false {
 				op.Off = 0 // not using offset
@@ -242,7 +242,7 @@ func scheduler(c chan Operation) {
 			// begin read
 			aio.PrepPread(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
 			chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
-			log.Println("Read submitted, waiting...")
+			//log.Println("Read submitted, waiting...")
 
 			// check to see if we actually got valid results back
 			var event syscall.IoEvent
@@ -265,10 +265,10 @@ func scheduler(c chan Operation) {
 			*(op.Ret_Err) = nil
 			*(op.Ret_Valid) = true
 
-			log.Println("Read succeeded... waiting for next op. ")
+			//log.Println("Read succeeded... waiting for next op. ")
 
 		case op.Op == WRITEAT:
-			log.Println("WRITEAT: ", op)
+			//log.Println("WRITEAT: ", op)
 			offset = true
 			fallthrough
 		case op.Op == WRITE:
@@ -276,12 +276,12 @@ func scheduler(c chan Operation) {
 				op.Off = 0 //do not use offset
 			}
 
-			log.Println("WRITE: ", op)
+			//log.Println("WRITE: ", op)
 
 			// begin read
 			aio.PrepPwrite(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
 			chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
-			log.Println("Write submitted...")
+			//log.Println("Write submitted...")
 
 			// check to see if we actually got valid results back
 			var event syscall.IoEvent
@@ -296,10 +296,10 @@ func scheduler(c chan Operation) {
 			*(op.Ret_Err) = nil
 			*(op.Ret_Valid) = true
 
-			log.Println("Write successful in scheduler")
+			//log.Println("Write successful in scheduler")
 
 		default:
-			log.Println("Op not found ", op.Op)
+			//log.Println("Op not found ", op.Op)
 		}
 
 		chk_err(syscall.IoDestroy(ctx))
