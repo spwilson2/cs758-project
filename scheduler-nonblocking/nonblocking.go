@@ -21,6 +21,14 @@ const CTX_SIZE = 10
 const VALID_STRING string = "package main"
 const TESTFILE string = "aio-example.go"
 
+var BAD_CONTEXT_REQUEST = errors.New("Too large of a context was requested.")
+
+const AIO_CONTEXT_MAX = 500000
+const AIO_CONTEXT_MIN = 1000
+const MIN_LOWER_RATE = 10
+const MIN_LOWER_LIMIT = 10
+const CONTEXT_REQUEST_MULTIPLIER = 2
+
 /* struct and const of Operations for AIO to do */
 const (
 	WRITE    int = 0
@@ -185,28 +193,82 @@ func Creat(path string, mode uint32) (fd int, err error) {
 /* reference counting for context */
 type Context struct {
 	ctx        syscall.AioContext_t
-	references uint
-	maxsize    uint
+	references int
+	maxsize    int
 }
 
-var currentCtx Context
+var aio_contexts []*Context
+var aio_context_max = AIO_CONTEXT_MAX
+var aio_context_min = AIO_CONTEXT_MIN
 
 /* setup context for aio, manages as reference counter */
-func GetCtx(num uint) (*syscall.AioContext_t, error) {
-	// check if we have any more slots remaining in this context
-	if currentCtx.references+num >= currentCtx.maxsize {
-		//log.Printf("GetCtx, have %d references so far\n", currentCtx.references)
-		currentCtx.references += num
-		return &currentCtx.ctx, nil
-	} else {
-		//log.Printf("GetCtx, current ctx at %d capacity. Adding new ctx with %d capacity:\n", currentCtx.maxsize, num)
-		var ctx syscall.AioContext_t
-		chk_err(syscall.IoSetup(num, &ctx))
-		currentCtx.ctx = ctx
-		currentCtx.references = 0
-		currentCtx.maxsize = num * 2
-		return &currentCtx.ctx, nil
+func getCtx(num int) (*Context, error) {
+
+	for _, context := range aio_contexts {
+		if new_references := context.references + num; new_references <= context.maxsize {
+			//log.Printf("GetCtx, have %d references so far\n", context.references)
+			context.references = new_references
+			return context, nil
+		}
+
 	}
+
+	// Unable to find a context with remaining space, let's create a new
+	// one.
+
+	var num_context_request int
+
+	switch {
+	case num < aio_context_min:
+		num_context_request = aio_context_min
+	case (num > aio_context_min) && (num < aio_context_max):
+		num_context_request = (CONTEXT_REQUEST_MULTIPLIER * num)
+		if num_context_request > aio_context_max {
+			num_context_request = aio_context_max
+		}
+	default:
+		//log.Printf("Bad number of contexts requested %d.\n", num)
+		return nil, BAD_CONTEXT_REQUEST
+	}
+
+	var ctx syscall.AioContext_t
+	err := syscall.IoSetup(uint(num_context_request), &ctx)
+
+	var new_context *Context = new(Context)
+
+	if err == nil {
+		new_context.ctx = ctx
+		new_context.references = num
+		new_context.maxsize = num_context_request
+		aio_contexts = append(aio_contexts, new_context)
+		//log.Printf("Appending the new context %p to list\n", new_context)
+	} else {
+		// Assume the request failed due to not enough resources
+		// TODO: should check the error condition...
+		// Due to there not being enough resources for a request of
+		// this size, assume the Max(cur_max, (num requested - 1)) is
+		// actual Max.
+		//log.Printf("Failed to request %d from IoSetup\n", num_context_request)
+
+		if aio_context_max < num_context_request {
+			aio_context_max = num_context_request
+		}
+
+		// If the request couldn't complete and we're requesting the
+		// bare minimun, move our min lower (limited to MIN_LOWER_LIMIT)
+		if aio_context_min == num_context_request {
+			aio_context_min -= (aio_context_min / MIN_LOWER_RATE)
+			if aio_context_min <= (MIN_LOWER_LIMIT - 1) {
+				aio_context_min = MIN_LOWER_LIMIT
+			}
+		}
+
+		new_context = nil
+	}
+
+	//TODO: Need to add cleanup.
+
+	return new_context, err
 }
 
 /* Scheduler function, reads op from channel and does it */
@@ -218,9 +280,12 @@ func scheduler(c chan Operation) {
 		// @TODO: Handle operations.
 
 		var ctx syscall.AioContext_t
+		context, err := getCtx(1)
+		chk_err(err)
+		ctx = context.ctx
 
 		// set up AIO
-		chk_err(syscall.IoSetup(1, &ctx)) // 1 == num of AIO in-flight
+		//chk_err(syscall.IoSetup(1, &ctx)) // 1 == num of AIO in-flight
 
 		var iocb syscall.Iocb
 		var iocbp = &iocb
@@ -302,7 +367,7 @@ func scheduler(c chan Operation) {
 			//log.Println("Op not found ", op.Op)
 		}
 
-		chk_err(syscall.IoDestroy(ctx))
+		//chk_err(syscall.IoDestroy(ctx))
 
 	}
 }
