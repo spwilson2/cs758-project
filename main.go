@@ -170,23 +170,23 @@ func performSequentialAsyncReadBenchmarks(opSize int) {
 }
 
 func performRandomBlockingWriteBenchmarks(opSize int) {
-	executionTime := defer un(trace("RBW"))
-	fmt.Println(executionTime)
+	defer un(trace("RBW"))
+	fmt.Println(0)
 }
 
 func performRandomBlockingReadBenchmarks(opSize int) {
-	executionTime := defer un(trace("RBR"))
-	fmt.Println(executionTime)
+	defer un(trace("RBR"))
+	fmt.Println(0)
 }
 
 func performRandomAsyncWriteBenchmarks(opSize int) {
-	executionTime := defer un(trace("RAW"))
-	fmt.Println(executionTime)
+	defer un(trace("RAW"))
+	fmt.Println(0)
 }
 
 func performRandomAsyncReadBenchmarks(opSize int) {
-	executionTime := defer un(trace("RAR"))
-	fmt.Println(executionTime)
+	defer un(trace("RAR"))
+	fmt.Println(0)
 }
 
 /*
