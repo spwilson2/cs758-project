@@ -204,6 +204,7 @@ var aio_context_min = AIO_CONTEXT_MIN
 /* setup context for aio, manages as reference counter */
 func getCtx(num int) (*Context, error) {
 
+	// TODO: Order the list by remaining references
 	for _, context := range aio_contexts {
 		if new_references := context.references + num; new_references <= context.maxsize {
 			//log.Printf("GetCtx, have %d references so far\n", context.references)
@@ -271,6 +272,11 @@ func getCtx(num int) (*Context, error) {
 	return new_context, err
 }
 
+func ungetCtx(context *Context, num int) error {
+	context.references -= num
+	return nil
+}
+
 /* Scheduler function, reads op from channel and does it */
 func scheduler(c chan Operation) {
 	for {
@@ -279,13 +285,11 @@ func scheduler(c chan Operation) {
 
 		// @TODO: Handle operations.
 
+		// set up AIO
 		var ctx syscall.AioContext_t
 		context, err := getCtx(1)
 		chk_err(err)
 		ctx = context.ctx
-
-		// set up AIO
-		//chk_err(syscall.IoSetup(1, &ctx)) // 1 == num of AIO in-flight
 
 		var iocb syscall.Iocb
 		var iocbp = &iocb
@@ -367,8 +371,7 @@ func scheduler(c chan Operation) {
 			//log.Println("Op not found ", op.Op)
 		}
 
-		//chk_err(syscall.IoDestroy(ctx))
-
+		ungetCtx(context, 1)
 	}
 }
 
