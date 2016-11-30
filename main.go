@@ -97,7 +97,7 @@ func initSchedulers() {
 }
 
 func performSequentialBlockingWriteBenchmarks(opSize int) {
-	name := "SBW.txt"
+	name := "SB.txt"
 	buf := make([]byte, opSize)
 	for i := 0; i < opSize; i++ {
 		buf[i] = byte(i)
@@ -115,11 +115,11 @@ func performSequentialBlockingWriteBenchmarks(opSize int) {
 }
 
 func performSequentialBlockingReadBenchmarks(opSize int) {
-	defer un(trace("SBR"))
+	//defer un(trace("SBR"))
 }
 
 func performSequentialAsyncWriteBenchmarks(opSize int) {
-	name := "SAW.txt"
+	name := "SA.txt"
 	buf := make([]byte, opSize)
 	for i := 0; i < opSize; i++ {
 		buf[i] = byte(i)
@@ -137,67 +137,83 @@ func performSequentialAsyncWriteBenchmarks(opSize int) {
 }
 
 func performSequentialAsyncReadBenchmarks(opSize int) {
-	defer un(trace("SAR"))
+	//defer un(trace("SAR"))
 }
 
 func performRandomBlockingWriteBenchmarks(opSize int) {
-	defer un(trace("RBW"))
+	//defer un(trace("RBW"))
 }
 
 func performRandomBlockingReadBenchmarks(opSize int) {
-	defer un(trace("RBR"))
+	//defer un(trace("RBR"))
 }
 
 func performRandomAsyncWriteBenchmarks(opSize int) {
-	defer un(trace("RAW"))
+	//defer un(trace("RAW"))
 }
 
 func performRandomAsyncReadBenchmarks(opSize int) {
-	defer un(trace("RAR"))
+	//defer un(trace("RAR"))
 }
 
 /*
 	Helper functions for scheduling blocking and non blocking operations
 */
 
-func scheduleBlockingWrite(id string, fd int, buf []byte) {
-	defer un(trace(id))
+func scheduleBlockingWrite(id string, fd int, buf []byte) int64 {
+	elapsed := new(int64)
+	defer un(trace(id, elapsed))
 	blocking.Write(fd, buf)
+	return *elapsed
 }
 
-func scheduleBlockingWriteAt(id string, fd int, off int, buf []byte) {
-	defer un(trace(id))
+func scheduleBlockingWriteAt(id string, fd int, off int, buf []byte) int64 {
+	elapsed := new(int64)
+	defer un(trace(id, elapsed))
 	blocking.WriteAt(fd, off, buf)
+	return *elapsed
 }
 
-func scheduleBlockingRead(id string, fd int, buf []byte) {
-	defer un(trace(id))
+func scheduleBlockingRead(id string, fd int, buf []byte) int64 {
+	elapsed := new(int64)
+	defer un(trace(id, elapsed))
 	blocking.Read(fd, buf)
+	return *elapsed
 }
 
-func scheduleBlockingReadAt(id string, fd int, off int, buf []byte) {
-	defer un(trace(id))
+func scheduleBlockingReadAt(id string, fd int, off int, buf []byte) int64 {
+	elapsed := new(int64)
+	defer un(trace(id, elapsed))
 	blocking.ReadAt(fd, off, buf)
+	return *elapsed
 }
 
-func scheduleNonblockingWrite(id string, fd int, buf []byte) {
-	defer un(trace(id))
+func scheduleNonblockingWrite(id string, fd int, buf []byte) int64 {
+	elapsed := new(int64)
+	defer un(trace(id, elapsed))
 	nonblocking.Write(fd, buf)
+	return *elapsed
 }
 
-func scheduleNonblockingWriteAt(id string, fd int, off int, buf []byte) {
-	defer un(trace(id))
+func scheduleNonblockingWriteAt(id string, fd int, off int, buf []byte) int64 {
+	elapsed := new(int64)
+	defer un(trace(id, elapsed))
 	nonblocking.WriteAt(fd, off, buf)
+	return *elapsed
 }
 
-func scheduleNonblockingRead(id string, fd int, buf []byte) {
-	defer un(trace(id))
+func scheduleNonblockingRead(id string, fd int, buf []byte) int64 {
+	elapsed := new(int64)
+	defer un(trace(id, elapsed))
 	nonblocking.Read(fd, buf)
+	return *elapsed
 }
 
-func scheduleNonblockingReadAt(id string, fd int, off int, buf []byte) {
-	defer un(trace(id))
+func scheduleNonblockingReadAt(id string, fd int, off int, buf []byte) int64 {
+	elapsed := new(int64)
+	defer un(trace(id, elapsed))
 	nonblocking.ReadAt(fd, off, buf)
+	return *elapsed
 }
 
 /*
@@ -212,15 +228,11 @@ func scheduleNonblockingReadAt(id string, fd int, off int, buf []byte) {
 	want to benchmark.
 */
 
-func trace(id string) (string, time.Time) {
-	//fmt.Printf("%s Benchmark running\n", id)
+func trace(id string, elapsed *int64) (string, time.Time, *int64) {
 	start := time.Now()
-	return id, start
+	return id, start, elapsed
 }
 
-func un(id string, start time.Time) time.Duration {
-	elapsed := time.Since(start)
-	//fmt.Printf("%s Benchmark complete\n", id)
-	fmt.Printf("%d nanoseconds\n\n", elapsed.Nanoseconds())
-	return elapsed
+func un(id string, start time.Time, elapsed *int64) {
+	*elapsed = time.Since(start).Nanoseconds()
 }
