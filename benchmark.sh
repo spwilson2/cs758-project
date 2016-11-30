@@ -1,6 +1,6 @@
 #!/bin/bash
 runBenchmark() {
-    for i in 1 10 100 1000
+    for i in 1 10 100
     do
         writeSum=0
         readSum=0
@@ -33,9 +33,11 @@ runBenchmark() {
 
 make
 
+rm -f ./csv/*.csv
+
 runBenchmark "sequential non-blocking" SAW SAR
-#runBenchmark "sequential blocking" SBW SBR
+runBenchmark "sequential blocking" SBW SBR
 #runBenchmark "random non-blocking" RAW RAR
 #runBenchmark "random blocking" RBW RBR
 
-#make clean
+make clean
