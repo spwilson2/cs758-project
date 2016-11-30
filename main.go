@@ -100,8 +100,10 @@ func performSequentialBlockingWriteBenchmarks(opSize int) {
 	}
 
 	executionTime := int64(0)
+	elapsed := new(int64)
 	for off := 0; off < opSize; off += 100 {
-		executionTime += scheduleBlockingWriteAt("SBW", fd, off, buf)
+		scheduleBlockingWriteAt("SBW", fd, off, buf, elapsed)
+		executionTime += *elapsed
 	}
 	fmt.Println(executionTime)
 }
@@ -117,8 +119,10 @@ func performSequentialBlockingReadBenchmarks(opSize int) {
 	}
 
 	executionTime := int64(0)
+	elapsed := new(int64)
 	for off := 0; off < opSize; off += 100 {
-		executionTime += scheduleBlockingReadAt("SBW", fd, off, buf)
+		scheduleBlockingReadAt("SBW", fd, off, buf, elapsed)
+		executionTime += *elapsed
 	}
 	fmt.Println(executionTime)
 }
@@ -137,8 +141,10 @@ func performSequentialAsyncWriteBenchmarks(opSize int) {
 	}
 
 	executionTime := int64(0)
+	elapsed := new(int64)
 	for off := 0; off < opSize; off += 100 {
-		executionTime += scheduleNonblockingWriteAt("SAW", fd, off, buf)
+		scheduleNonblockingWriteAt("SAW", fd, off, buf, elapsed)
+		executionTime += *elapsed
 	}
 	fmt.Println(executionTime)
 }
@@ -154,8 +160,10 @@ func performSequentialAsyncReadBenchmarks(opSize int) {
 	}
 
 	executionTime := int64(0)
+	elapsed := new(int64)
 	for off := 0; off < opSize; off += 100 {
-		executionTime += scheduleNonblockingReadAt("SAW", fd, off, buf)
+		scheduleNonblockingReadAt("SAW", fd, off, buf, elapsed)
+		executionTime += *elapsed
 	}
 	fmt.Println(executionTime)
 }
@@ -188,60 +196,44 @@ func performRandomAsyncReadBenchmarks(opSize int) {
 	Helper functions for scheduling blocking and non blocking operations
 */
 
-func scheduleBlockingWrite(id string, fd int, buf []byte) int64 {
-	elapsed := new(int64)
+func scheduleBlockingWrite(id string, fd int, buf []byte, elapsed *int64) {
 	defer un(trace(id, elapsed))
 	blocking.Write(fd, buf)
-	return *elapsed
 }
 
-func scheduleBlockingWriteAt(id string, fd int, off int, buf []byte) int64 {
-	elapsed := new(int64)
+func scheduleBlockingWriteAt(id string, fd int, off int, buf []byte, elapsed *int64) {
 	defer un(trace(id, elapsed))
 	blocking.WriteAt(fd, off, buf)
-	return *elapsed
 }
 
-func scheduleBlockingRead(id string, fd int, buf []byte) int64 {
-	elapsed := new(int64)
+func scheduleBlockingRead(id string, fd int, buf []byte, elapsed *int64) {
 	defer un(trace(id, elapsed))
 	blocking.Read(fd, buf)
-	return *elapsed
 }
 
-func scheduleBlockingReadAt(id string, fd int, off int, buf []byte) int64 {
-	elapsed := new(int64)
+func scheduleBlockingReadAt(id string, fd int, off int, buf []byte, elapsed *int64) {
 	defer un(trace(id, elapsed))
 	blocking.ReadAt(fd, off, buf)
-	return *elapsed
 }
 
-func scheduleNonblockingWrite(id string, fd int, buf []byte) int64 {
-	elapsed := new(int64)
+func scheduleNonblockingWrite(id string, fd int, buf []byte, elapsed *int64) {
 	defer un(trace(id, elapsed))
 	nonblocking.Write(fd, buf)
-	return *elapsed
 }
 
-func scheduleNonblockingWriteAt(id string, fd int, off int, buf []byte) int64 {
-	elapsed := new(int64)
+func scheduleNonblockingWriteAt(id string, fd int, off int, buf []byte, elapsed *int64) {
 	defer un(trace(id, elapsed))
 	nonblocking.WriteAt(fd, off, buf)
-	return *elapsed
 }
 
-func scheduleNonblockingRead(id string, fd int, buf []byte) int64 {
-	elapsed := new(int64)
+func scheduleNonblockingRead(id string, fd int, buf []byte, elapsed *int64) {
 	defer un(trace(id, elapsed))
 	nonblocking.Read(fd, buf)
-	return *elapsed
 }
 
-func scheduleNonblockingReadAt(id string, fd int, off int, buf []byte) int64 {
-	elapsed := new(int64)
+func scheduleNonblockingReadAt(id string, fd int, off int, buf []byte, elapsed *int64) {
 	defer un(trace(id, elapsed))
 	nonblocking.ReadAt(fd, off, buf)
-	return *elapsed
 }
 
 /*
