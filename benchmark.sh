@@ -26,6 +26,7 @@ runBenchmark() {
         fi
     done
 
+    echo "generating graphs"
     Rscript generateGraph.R $2.csv
     Rscript generateGraph.R $3.csv
 }
