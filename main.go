@@ -101,7 +101,7 @@ func performSequentialBlockingWriteBenchmarks(opSize int) {
 
 	executionTime := int64(0)
 	for off := 0; off < opSize; off += 100 {
-		executionTime += scheduleBlockingWriteAt(fmt.Sprint("SBW @ ", off), fd, off, buf)
+		executionTime += scheduleBlockingWriteAt("SBW", fd, off, buf)
 	}
 	fmt.Println(executionTime)
 }
@@ -118,7 +118,7 @@ func performSequentialBlockingReadBenchmarks(opSize int) {
 
 	executionTime := int64(0)
 	for off := 0; off < opSize; off += 100 {
-		executionTime += scheduleBlockingReadAt(fmt.Sprint("SBW @ ", off), fd, off, buf)
+		executionTime += scheduleBlockingReadAt("SBW", fd, off, buf)
 	}
 	fmt.Println(executionTime)
 }
@@ -138,7 +138,7 @@ func performSequentialAsyncWriteBenchmarks(opSize int) {
 
 	executionTime := int64(0)
 	for off := 0; off < opSize; off += 100 {
-		executionTime += scheduleNonblockingWriteAt(fmt.Sprint("SAW @ ", off), fd, off, buf)
+		executionTime += scheduleNonblockingWriteAt("SAW", fd, off, buf)
 	}
 	fmt.Println(executionTime)
 }
@@ -155,7 +155,7 @@ func performSequentialAsyncReadBenchmarks(opSize int) {
 
 	executionTime := int64(0)
 	for off := 0; off < opSize; off += 100 {
-		executionTime += scheduleNonblockingReadAt(fmt.Sprint("SAW @ ", off), fd, off, buf)
+		executionTime += scheduleNonblockingReadAt("SAW", fd, off, buf)
 	}
 	fmt.Println(executionTime)
 }
@@ -257,8 +257,7 @@ func scheduleNonblockingReadAt(id string, fd int, off int, buf []byte) int64 {
 */
 
 func trace(id string, elapsed *int64) (string, time.Time, *int64) {
-	start := time.Now()
-	return id, start, elapsed
+	return id, time.Now(), elapsed
 }
 
 func un(id string, start time.Time, elapsed *int64) {

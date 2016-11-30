@@ -4,9 +4,10 @@ runBenchmark() {
     do
         writeSum=0
         readSum=0
+        
+        echo "Running $1 benchmark with $i KB writes and reads"
         for j in `seq 1 10`;
         do
-            echo "Running $1 benchmark with $i KB writes and reads"
             output=$(./main -$2 -$3 -size $(($i * 1000)))
             
             writeResult=$(echo "$output" | head -n 1)
@@ -14,19 +15,19 @@ runBenchmark() {
 
             readResult=$(echo "$output" | tail -1)
             readSum=$((readSum+readResult))
-
-            if [ $j -eq 1 ] ; then 
-                printf "%d" $(($writeSum/10)) >> $2.csv
-                printf "%d" $(($readSum/10)) >> $3.csv
-            else
-                printf ",%d" $(($writeSum/10)) >> $2.csv
-                printf ",%d" $(($readSum/10)) >> $3.csv
-            fi
         done
-        echo >> $2.csv
-        echo >> $3.csv
+
+        if [ $i -eq 1 ] ; then 
+            printf "%d" $(($writeSum/10)) >> $2.csv
+            printf "%d" $(($readSum/10)) >> $3.csv
+        else
+            printf ",%d" $(($writeSum/10)) >> $2.csv
+            printf ",%d" $(($readSum/10)) >> $3.csv
+        fi
     done
-    
+
+    Rscript generateGraph.R $2.csv
+    Rscript generateGraph.R $3.csv
 }
 
 make
