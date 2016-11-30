@@ -143,7 +143,6 @@ func performSequentialAsyncWriteBenchmarks(opSize int) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error opening file\n")
 	}
-	fmt.Println(executionTime)
 
 	executionTime := int64(0)
 	for off := 0; off < opSize; off += 100 {
