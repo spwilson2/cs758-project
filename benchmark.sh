@@ -9,7 +9,7 @@ runBenchmark() {
             echo "Running $1 benchmark with $i KB writes and reads"
             output=$(./main -$2 -$2 -size $(($i * 1000)))
             
-            writeResult=$(echo $output | tail -2 | head -n 1)
+            writeResult=$(echo $output | tail -n 1)
             $(($writeSum=$writeSum+$writeResult))
             
             readResult=$(echo $output | tail -1)
