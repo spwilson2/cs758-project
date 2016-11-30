@@ -87,11 +87,9 @@ func parseArgs() ([]*bool, *int) {
 }
 
 func initSchedulers() {
-	fmt.Printf("Initializing nonblocking IO scheduler\n")
 	nonblockingChan := make(chan nonblocking.Operation)
 	nonblocking.InitScheduler(nonblockingChan)
 
-	fmt.Printf("Initializing blocking IO scheduler\n")
 	blockingChan := make(chan blocking.Operation)
 	blocking.InitScheduler(blockingChan)
 }

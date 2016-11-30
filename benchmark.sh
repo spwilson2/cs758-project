@@ -9,10 +9,10 @@ runBenchmark() {
             echo "Running $1 benchmark with $i KB writes and reads"
             output=$(./main -$2 -$2 -size $(($i * 1000)))
             
-            writeResult=$(cat $output | head -n 1)
+            writeResult=$(echo $output | tail -2 | head -n 1)
             $(($writeSum=$writeSum+$writeResult))
             
-            readResult=$(cat $output | tail -1)
+            readResult=$(echo $output | tail -1)
             $(($readSum=$writeSum+$readResult))
 
             if [ ! -f "$2.csv" ]; then
