@@ -36,4 +36,4 @@ runBenchmark("sequential blocking", SBW, SBR)
 runBenchmark("random non-blocking", RAW, RAR)
 runBenchmark("random blocking", RBW, RBR)
 
-make clean
+#make clean
