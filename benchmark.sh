@@ -1,13 +1,13 @@
 #!/bin/bash
 runBenchmark() {
-    for i in 1 10 100 1000 10000
+    for i in 1 10 100 1000
     do
         writeSum=0
         readSum=0
         for j in 1..10
         do
             echo "Running $1 benchmark with $i KB writes and reads"
-            output=$(./main -$2 -$2 -size $(($i * 1000)))
+            output=$(./main -$2 -$3 -size $(($i * 1000)))
             
             writeResult=$(echo "$output" | head -n 1)
             writeSum+=$writeResult
@@ -15,12 +15,13 @@ runBenchmark() {
             readResult=$(echo "$output" | tail -1)
             readSum+=$readResult
 
-            if [ ! -f "$2.csv" ]; then
-                $writeSum/10 >> $2.csv
-                $readSum/10 >> $3.csv
+            if [ j != 1 ]; then 
+                printf "%d" $(($writeSum/10)) >> $2.csv
+                printf "%d" $(($readSum/10)) >> $3.csv
             else
-                ,$writeSum/10 >> $2.csv
-                ,$readSum/10 >> $3.csv
+                echo why u not run
+                printf ",%d" $(($writeSum/10)) >> $2.csv
+                printf ",%d" $(($readSum/10)) >> $3.csv
             fi
         done
         echo >> $2.csv
