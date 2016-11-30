@@ -12,7 +12,7 @@ runBenchmark() {
             writeResult=$(echo "$output" | head -n 1)
             $(($writeSum=$writeSum+$writeResult))
             
-            readResult=$(echo "$output | tail -1)
+            readResult=$(echo "$output" | tail -1)
             $(($readSum=$writeSum+$readResult))
 
             if [ ! -f "$2.csv" ]; then
