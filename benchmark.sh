@@ -18,11 +18,11 @@ runBenchmark() {
         done
 
         if [ $i -eq 1 ] ; then 
-            printf "%d" $(($writeSum/10)) >> $2.csv
-            printf "%d" $(($readSum/10)) >> $3.csv
+            printf "%d" $(($writeSum/10)) >> ./csv/$2.csv
+            printf "%d" $(($readSum/10)) >> ./csv/$3.csv
         else
-            printf ",%d" $(($writeSum/10)) >> $2.csv
-            printf ",%d" $(($readSum/10)) >> $3.csv
+            printf ",%d" $(($writeSum/10)) >> ./csv/$2.csv
+            printf ",%d" $(($readSum/10)) >> ./csv/$3.csv
         fi
     done
 
