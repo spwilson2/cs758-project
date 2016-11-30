@@ -20,48 +20,40 @@ func main() {
 
 	// Run Sequential Blocking Write Benchmark
 	if *flags[0] {
-		fmt.Printf("Running Sequential Blocking Write Benchmark\n")
 		performSequentialBlockingWriteBenchmarks(*opSize)
 	}
 
 	// Run Sequential Blocking Read Benchmark
 	if *flags[1] {
-		fmt.Printf("Running Sequential Blocking Read Benchmark\n")
 		performSequentialBlockingReadBenchmarks(*opSize)
 	}
 
 	// Run Random Blocking Write Benchmark
 	if *flags[2] {
-		fmt.Printf("Running Random Blocking Write Benchmark\n")
 		performRandomBlockingWriteBenchmarks(*opSize)
 	}
 
 	// Run Random Blocking Read Benchmark
 	if *flags[3] {
-		fmt.Printf("Running Random Blocking Read Benchmark\n")
 		performRandomBlockingReadBenchmarks(*opSize)
 	}
 
 	// Run Sequential Nonblocking Write Benchmark
 	if *flags[4] {
-		fmt.Printf("Running Sequential Nonblocking Write Benchmark\n")
 		performSequentialAsyncWriteBenchmarks(*opSize)
 	}
 	// Run Sequential Nonblocking Read Benchmark
 	if *flags[5] {
-		fmt.Printf("Running Sequential Nonblocking Read Benchmark\n")
 		performSequentialAsyncReadBenchmarks(*opSize)
 	}
 
 	// Run Random Nonblocking Write Benchmark
 	if *flags[6] {
-		fmt.Printf("Running Random Nonblocking Write Benchmark\n")
 		performRandomAsyncWriteBenchmarks(*opSize)
 	}
 
 	// Run Random Nonblocking Write Benchmark
 	if *flags[7] {
-		fmt.Printf("Running Random Nonblocking Read Benchmark\n")
 		performRandomAsyncReadBenchmarks(*opSize)
 	}
 }
