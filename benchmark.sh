@@ -31,9 +31,9 @@ runBenchmark() {
 
 make
 
-runBenchmark("sequential non-blocking", SAW, SAR)
-runBenchmark("sequential blocking", SBW, SBR)
-runBenchmark("random non-blocking", RAW, RAR)
-runBenchmark("random blocking", RBW, RBR)
+runBenchmark "sequential non-blocking" SAW SAR
+runBenchmark "sequential blocking" SBW SBR
+runBenchmark "random non-blocking" RAW RAR
+runBenchmark "random blocking" RBW RBR
 
 #make clean
