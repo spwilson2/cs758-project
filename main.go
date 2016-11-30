@@ -109,13 +109,26 @@ func performSequentialBlockingWriteBenchmarks(opSize int) {
 		fmt.Fprintf(os.Stderr, "error opening file\n")
 	}
 
+	executionTime := int64(0)
 	for off := 0; off < opSize; off += 100 {
-		scheduleBlockingWriteAt(fmt.Sprint("SBW @ ", off), fd, off, buf)
+		executionTime += scheduleBlockingWriteAt(fmt.Sprint("SBW @ ", off), fd, off, buf)
 	}
 }
 
 func performSequentialBlockingReadBenchmarks(opSize int) {
-	//defer un(trace("SBR"))
+	name := "SB.txt"
+	buf := make([]byte, opSize)
+
+	//blocking.Creat(name, syscall.S_IRUSR|syscall.S_IWUSR)
+	fd, err := blocking.Open(name, syscall.O_RDWR, 0)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error opening file\n")
+	}
+
+	executionTime := int64(0)
+	for off := 0; off < opSize; off += 100 {
+		executionTime += scheduleBlockingReadAt(fmt.Sprint("SBW @ ", off), fd, off, buf)
+	}
 }
 
 func performSequentialAsyncWriteBenchmarks(opSize int) {
@@ -131,13 +144,26 @@ func performSequentialAsyncWriteBenchmarks(opSize int) {
 		fmt.Fprintf(os.Stderr, "error opening file\n")
 	}
 
+	executionTime := int64(0)
 	for off := 0; off < opSize; off += 100 {
-		scheduleNonblockingWriteAt(fmt.Sprint("SAW @ ", off), fd, off, buf)
+		executionTime += scheduleNonblockingWriteAt(fmt.Sprint("SAW @ ", off), fd, off, buf)
 	}
 }
 
 func performSequentialAsyncReadBenchmarks(opSize int) {
-	//defer un(trace("SAR"))
+	name := "SA.txt"
+	buf := make([]byte, opSize)
+
+	//nonblocking.Creat(name, syscall.S_IRUSR|syscall.S_IWUSR)
+	fd, err := nonblocking.Open(name, syscall.O_RDWR, 0)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error opening file\n")
+	}
+
+	executionTime := int64(0)
+	for off := 0; off < opSize; off += 100 {
+		executionTime += scheduleNonblockingReadAt(fmt.Sprint("SAW @ ", off), fd, off, buf)
+	}
 }
 
 func performRandomBlockingWriteBenchmarks(opSize int) {

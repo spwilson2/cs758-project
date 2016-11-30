@@ -1,16 +1,39 @@
 #!/bin/bash
+runBenchmark() {
+    for i in 1 10 100 1000 10000
+    do
+        writeSum=0
+        readSum=0
+        for j in 1..10
+        do
+            echo "Running $1 benchmark with $i KB writes and reads"
+            output=$(./main -$2 -$2 -size $(($i * 1000)))
+            
+            writeResult=$(cat $output | head -n 1)
+            $(($writeSum+=writeResult))
+            
+            readResult=$(cat $output | tail -1)
+            $(($readSum+=readResult))
+
+            if [ ! -f "$2.csv" ]; then
+                $(($writeSum / 10)) >> $2.csv
+                $(($readSum / 10)) >> $3.csv
+            else
+                ,$(($writeSum / 10)) >> $2.csv
+                ,$(($readSum / 10)) >> $3.csv
+            fi
+        done
+        echo >> $2.csv
+        echo >> $3.csv
+    done
+    
+}
+
 make
 
-for i in 1 #10 100 1000 10000
-do
-    echo "Running sequentional non-blocking benchmark with $i KB writes and reads"
-    ./main -SAW -SAR -size $(($i * 1000))
-done
-
-for i in 1 #10 100 1000 10000
-do
-    echo "Running sequentional non-blocking benchmark with $i KB writes and reads"
-    ./main -SBW -SBR -size $(($i * 1000))
-done
+runBenchmark("sequential non-blocking", SAW, SAR)
+runBenchmark("sequential blocking", SBW, SBR)
+runBenchmark("random non-blocking", RAW, RAR)
+runBenchmark("random blocking", RBW, RBR)
 
 make clean
