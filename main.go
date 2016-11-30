@@ -111,6 +111,7 @@ func performSequentialBlockingWriteBenchmarks(opSize int) {
 	for off := 0; off < opSize; off += 100 {
 		executionTime += scheduleBlockingWriteAt(fmt.Sprint("SBW @ ", off), fd, off, buf)
 	}
+	fmt.Println(executionTime)
 }
 
 func performSequentialBlockingReadBenchmarks(opSize int) {
@@ -127,6 +128,7 @@ func performSequentialBlockingReadBenchmarks(opSize int) {
 	for off := 0; off < opSize; off += 100 {
 		executionTime += scheduleBlockingReadAt(fmt.Sprint("SBW @ ", off), fd, off, buf)
 	}
+	fmt.Println(executionTime)
 }
 
 func performSequentialAsyncWriteBenchmarks(opSize int) {
@@ -141,11 +143,13 @@ func performSequentialAsyncWriteBenchmarks(opSize int) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error opening file\n")
 	}
+	fmt.Println(executionTime)
 
 	executionTime := int64(0)
 	for off := 0; off < opSize; off += 100 {
 		executionTime += scheduleNonblockingWriteAt(fmt.Sprint("SAW @ ", off), fd, off, buf)
 	}
+	fmt.Println(executionTime)
 }
 
 func performSequentialAsyncReadBenchmarks(opSize int) {
@@ -162,22 +166,27 @@ func performSequentialAsyncReadBenchmarks(opSize int) {
 	for off := 0; off < opSize; off += 100 {
 		executionTime += scheduleNonblockingReadAt(fmt.Sprint("SAW @ ", off), fd, off, buf)
 	}
+	fmt.Println(executionTime)
 }
 
 func performRandomBlockingWriteBenchmarks(opSize int) {
-	//defer un(trace("RBW"))
+	executionTime := defer un(trace("RBW"))
+	fmt.Println(executionTime)
 }
 
 func performRandomBlockingReadBenchmarks(opSize int) {
-	//defer un(trace("RBR"))
+	executionTime := defer un(trace("RBR"))
+	fmt.Println(executionTime)
 }
 
 func performRandomAsyncWriteBenchmarks(opSize int) {
-	//defer un(trace("RAW"))
+	executionTime := defer un(trace("RAW"))
+	fmt.Println(executionTime)
 }
 
 func performRandomAsyncReadBenchmarks(opSize int) {
-	//defer un(trace("RAR"))
+	executionTime := defer un(trace("RAR"))
+	fmt.Println(executionTime)
 }
 
 /*
