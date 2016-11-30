@@ -9,10 +9,10 @@ runBenchmark() {
             echo "Running $1 benchmark with $i KB writes and reads"
             output=$(./main -$2 -$2 -size $(($i * 1000)))
             
-            writeResult=$(echo $output | tail -n 1)
+            writeResult=$(echo "$output" | head -n 1)
             $(($writeSum=$writeSum+$writeResult))
             
-            readResult=$(echo $output | tail -1)
+            readResult=$(echo "$output | tail -1)
             $(($readSum=$writeSum+$readResult))
 
             if [ ! -f "$2.csv" ]; then
@@ -32,8 +32,8 @@ runBenchmark() {
 make
 
 runBenchmark "sequential non-blocking" SAW SAR
-runBenchmark "sequential blocking" SBW SBR
-runBenchmark "random non-blocking" RAW RAR
-runBenchmark "random blocking" RBW RBR
+#runBenchmark "sequential blocking" SBW SBR
+#runBenchmark "random non-blocking" RAW RAR
+#runBenchmark "random blocking" RBW RBR
 
 #make clean
