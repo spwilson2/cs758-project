@@ -10,10 +10,10 @@ runBenchmark() {
             output=$(./main -$2 -$2 -size $(($i * 1000)))
             
             writeResult=$(cat $output | head -n 1)
-            $(($writeSum=$writeSum+writeResult))
+            $(($writeSum=$writeSum+$writeResult))
             
             readResult=$(cat $output | tail -1)
-            $(($readSum=$writeSum+readResult))
+            $(($readSum=$writeSum+$readResult))
 
             if [ ! -f "$2.csv" ]; then
                 $(($writeSum / 10)) >> $2.csv
