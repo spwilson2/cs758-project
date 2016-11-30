@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"syscall"
+	"unsafe"
 
 	aio "github.com/spwilson2/cs758-project/libaio"
 )
@@ -283,97 +284,142 @@ func ungetCtx(context *Context, num int) error {
 
 /* Scheduler function, reads op from channel and does it */
 func scheduler(c chan Operation) {
+	// map to hold inflight aio ops
+	inflight := make(map[*syscall.Iocb]Operation)
+	inflight_ctx := make([]Context, 100, 1000)
+
+	var context *Context // context so we can use it inside of the diff select cases
+
 	for {
-		op := <-c
-		//log.Println("Received operation: ", op.Op)
+		select {
+		case op := <-c:
+			//log.Println("Received operation: ", op.Op)
 
-		// @TODO: Handle operations.
+			// @TODO: Handle operations.
 
-		// set up AIO
-		var ctx syscall.AioContext_t
-		context, err := getCtx(1)
-		chk_err(err)
-		ctx = context.ctx
+			// set up AIO
+			var ctx syscall.AioContext_t
+			context, err := getCtx(1)
+			chk_err(err)
+			ctx = context.ctx
 
-		var iocb syscall.Iocb
-		var iocbp = &iocb
+			var iocb syscall.Iocb
+			var iocbp = &iocb
 
-		var offset = false
+			var offset = false
 
-		switch {
-		case op.Op == READAT:
-			//log.Println("READAT: ", op)
-			offset = true
-			fallthrough
-		case op.Op == READ:
-			//log.Println("READ: ", op)
+			switch {
+			case op.Op == READAT:
+				//log.Println("READAT: ", op)
+				offset = true
+				fallthrough
+			case op.Op == READ:
+				//log.Println("READ: ", op)
 
-			if offset == false {
-				op.Off = 0 // not using offset
-			}
+				if offset == false {
+					op.Off = 0 // not using offset
+				}
 
-			// begin read
-			aio.PrepPread(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
-			chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
-			//log.Println("Read submitted, waiting...")
+				// begin read
+				aio.PrepPread(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
+				chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
+				//log.Println("Read submitted, waiting...")
 
-			// check to see if we actually got valid results back
-			var event syscall.IoEvent
-			var timeout syscall.Timespec
-			events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
+				// save this op as inflight
+				inflight[iocbp] = op
 
+<<<<<<< HEAD
 			if events <= 0 {
 				chk_err(IO_EVENTS_FAIL)
 			}
+=======
+				// check to see if we actually got valid results back
+				var event syscall.IoEvent
+				var timeout syscall.Timespec
+				events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
+>>>>>>> BROKEN working on experimental scheduler
 
-			/*
-				if offset == false && string(op.Buf[:len(VALID_STRING)]) != VALID_STRING {
-					log.Printf("Expected %s, found %s\n", VALID_STRING, op.Buf)
+				if events <= 0 {
 					chk_err(fail)
 				}
-			*/
 
-			// set return vals
-			*(op.Ret_N) = events
-			*(op.Ret_Err) = nil
-			*(op.Ret_Valid) = true
+				// set return vals
+				*(op.Ret_N) = events
+				*(op.Ret_Err) = nil
+				*(op.Ret_Valid) = true
 
-			//log.Println("Read succeeded... waiting for next op. ")
+				//log.Println("Read succeeded... waiting for next op. ")
 
-		case op.Op == WRITEAT:
-			//log.Println("WRITEAT: ", op)
-			offset = true
-			fallthrough
-		case op.Op == WRITE:
-			if offset == false {
-				op.Off = 0 //do not use offset
 			}
 
-			//log.Println("WRITE: ", op)
+			case op.Op == WRITEAT:
+				//log.Println("WRITEAT: ", op)
+				offset = true
+				fallthrough
+			case op.Op == WRITE:
+				if offset == false {
+					op.Off = 0 //do not use offset
+				}
 
-			// begin read
-			aio.PrepPwrite(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
-			chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
-			//log.Println("Write submitted...")
+				//log.Println("WRITE: ", op)
 
-			// check to see if we actually got valid results back
-			var event syscall.IoEvent
-			var timeout syscall.Timespec
-			events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
-			if events <= 0 {
-				chk_err(IO_EVENTS_FAIL)
+				// begin read
+				aio.PrepPwrite(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
+				chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
+				//log.Println("Write submitted...")
+
+				// save op as inflight
+				inflight[iocbp] = op
+
+				// check to see if we actually got valid results back
+				var event syscall.IoEvent
+				var timeout syscall.Timespec
+				events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
+				if events <= 0 {
+					chk_err(fail)
+				}
+
+				// set return vals
+				*(op.Ret_N) = events
+				*(op.Ret_Err) = nil
+				*(op.Ret_Valid) = true
+
+				//log.Println("Write successful in scheduler")
+
+			// switch
+			default:
+				//log.Println("Op not found ", op.Op)
 			}
 
-			// set return vals
-			*(op.Ret_N) = events
-			*(op.Ret_Err) = nil
-			*(op.Ret_Valid) = true
-
-			//log.Println("Write successful in scheduler")
-
+		// select: no ops yet, check for any inflight ops to be done
 		default:
-			//log.Println("Op not found ", op.Op)
-		}
+
+			// check all in-flight contexts
+			for _, context := range inflight_ctx {
+				var event syscall.IoEvent
+				var timeout syscall.Timespec
+				ctx := context.ctx
+				events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
+
+				if events <= 0 {
+					continue // not done yet
+				}
+
+				// set return vals, obtained from a map
+				op, ok := inflight[(*syscall.Iocb)(unsafe.Pointer(uintptr(event.Obj)))]
+				// make sure this event existed. If not, ???
+				if ok == false {
+					chk_err(fail)
+				}
+
+				//@TODO: FIX THIS
+				*(op.Ret_N) = uintptr(event.Data)
+				*(op.Ret_Err) = nil
+				*(op.Ret_Valid) = true
+
+			}
+
+		} // end of select
 
 		ungetCtx(context, 1)
 	}
