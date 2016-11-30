@@ -3,7 +3,6 @@ package nonblocking
 // Non-blocking IO Scheduler
 
 import (
-	"errors"
 	"log"
 	"os"
 	"syscall"
@@ -15,19 +14,23 @@ var TestExport int
 var initialized = false
 var channel chan Operation
 
-var fail = errors.New("")
+const IO_EVENTS_FAIL = Error("Error on IoGetevents call. Expected 1 or more return events.")
 
 const CTX_SIZE = 10
 const VALID_STRING string = "package main"
 const TESTFILE string = "aio-example.go"
 
-var BAD_CONTEXT_REQUEST = errors.New("Too large of a context was requested.")
-
+const BAD_CONTEXT_REQUEST = Error("Too large of a context was requested.")
 const AIO_CONTEXT_MAX = 500000
 const AIO_CONTEXT_MIN = 1000
 const MIN_LOWER_RATE = 10
 const MIN_LOWER_LIMIT = 10
 const CONTEXT_REQUEST_MULTIPLIER = 2
+
+// Hack to get constant errors.
+type Error string
+
+func (e Error) Error() string { return string(e) }
 
 /* struct and const of Operations for AIO to do */
 const (
@@ -61,6 +64,7 @@ type File struct {
 func chk_err(err error) {
 	if err != nil {
 		log.Printf("(FAILED) %s\n", os.Args[0])
+		log.Printf("%v \n", err)
 		panic(err) //os.Exit(-1)
 	}
 }
@@ -319,7 +323,7 @@ func scheduler(c chan Operation) {
 			events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
 
 			if events <= 0 {
-				chk_err(fail)
+				chk_err(IO_EVENTS_FAIL)
 			}
 
 			/*
@@ -357,7 +361,7 @@ func scheduler(c chan Operation) {
 			var timeout syscall.Timespec
 			events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
 			if events <= 0 {
-				chk_err(fail)
+				chk_err(IO_EVENTS_FAIL)
 			}
 
 			// set return vals
