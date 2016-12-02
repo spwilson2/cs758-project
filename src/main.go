@@ -1,5 +1,8 @@
 package main
 
+/* Note: This file WILL NOT compile. You must use the run-benchmarks script to
+* generate files with the approprate imports! */
+
 import (
 	"flag"
 	"fmt"
@@ -11,12 +14,10 @@ import (
 	"sync"
 	atomic "sync/atomic"
 	"time"
-
-	sut "github.com/spwilson2/cs758-project/scheduler-blocking"
-	//sut "github.com/spwilson2/cs758-project/scheduler-nonblocking"
+	SCHEDULER_UNDER_TEST
 )
 
-const GEN_FILE_BASENAME = "generated/testfile-"
+const GEN_FILE_BASENAME = "testfile-"
 const GEN_FILE_SUFFIX = ".gen"
 
 type Event_t int
@@ -94,6 +95,7 @@ var f_writeOffset int
 var f_numFiles int
 var f_files []string
 var f_mixOps bool
+var f_path string
 
 func main() {
 
@@ -115,6 +117,9 @@ func getArgs() {
 	flag.IntVar(&f_writeOffset, "woff", 0, "Offset for each additional write")
 	flag.IntVar(&f_numFiles, "nfiles", 0, "Number of different files to dispatch r/w's to")
 	flag.BoolVar(&f_mixOps, "mix", false, "Mix both reads and writes at the same time")
+
+	flag.StringVar(&f_path, "path", "", "The realpath of this file.")
+	f_path += f_path + GEN_FILE_BASENAME
 
 	var file_list string
 	flag.StringVar(&file_list, "files", "", "Comma separated list of files to dispatch r/w's, overrids nfiles")
@@ -319,7 +324,7 @@ func genFiles(num int, size int64) []string {
 	var buf = []byte{0}
 
 	for val := 0; val < num; val++ {
-		file_name := GEN_FILE_BASENAME + strconv.Itoa(val) + GEN_FILE_SUFFIX
+		file_name := f_path + strconv.Itoa(val) + GEN_FILE_SUFFIX
 		file_p, err := os.OpenFile(file_name, os.O_CREATE|os.O_WRONLY, 0777)
 		panic_chk(err)
 		file_list = append(file_list, file_name)
