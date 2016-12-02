@@ -286,9 +286,9 @@ func ungetCtx(context *Context, num int) error {
 func scheduler(c chan Operation) {
 	// map to hold inflight aio ops
 	inflight := make(map[*syscall.Iocb]Operation)
-	inflight_ctx := make([]Context, 100, 1000)
+	inflight_ctx := make([]*Context, 100, 1000)
 
-	var context *Context // context so we can use it inside of the diff select cases
+	//var context *Context // context so we can use it inside of the diff select cases
 
 	for {
 		select {
@@ -326,6 +326,7 @@ func scheduler(c chan Operation) {
 				//log.Println("Read submitted, waiting...")
 
 				// save this op as inflight
+				inflight_ctx = append(inflight_ctx, context)
 				inflight[iocbp] = op
 
 				//log.Println("Read succeeded... waiting for next op. ")
@@ -346,7 +347,8 @@ func scheduler(c chan Operation) {
 				chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
 				//log.Println("Write submitted...")
 
-				// save op as inflight
+				// save op & ctx as inflight
+				inflight_ctx = append(inflight_ctx, context)
 				inflight[iocbp] = op
 
 			// switch
@@ -356,15 +358,23 @@ func scheduler(c chan Operation) {
 
 		// select: no ops yet, check for any inflight ops to be done
 		default:
+			//log.Println("No new ops queued, checking in-flight...")
 
 			// check all in-flight contexts
 			for _, context := range inflight_ctx {
+				if context == nil {
+					continue
+				}
+
+				//log.Println("in-flight begin")
+
 				var event syscall.IoEvent
 				var timeout syscall.Timespec
 				ctx := context.ctx
 				events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
 
 				if events <= 0 {
+					//log.Println("in-flight not done yet!")
 					continue // not done yet
 				}
 
@@ -372,19 +382,24 @@ func scheduler(c chan Operation) {
 				op, ok := inflight[(*syscall.Iocb)(unsafe.Pointer(uintptr(event.Obj)))]
 				// make sure this event existed. If not, ???
 				if ok == false {
+					log.Println("event did not exist ??")
 					chk_err(IO_EVENTS_FAIL)
 				}
 
 				//@TODO: FIX THIS
-				*(op.Ret_N) = uintptr(event.Data)
+				N_ptr := (*int)(unsafe.Pointer(uintptr(event.Res)))
+				//log.Println("Setting return vals: ", event.Res)
+				op.Ret_N = N_ptr
 				*(op.Ret_Err) = nil
 				*(op.Ret_Valid) = true
+
+				//@TODO: Verify.
+				ungetCtx(context, 1)
 
 			}
 
 		} // end of select
 
-		ungetCtx(context, 1)
 	}
 }
 
