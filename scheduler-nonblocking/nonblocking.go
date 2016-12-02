@@ -387,9 +387,9 @@ func scheduler(c chan Operation) {
 				}
 
 				//@TODO: FIX THIS
-				N_ptr := (*int)(unsafe.Pointer(uintptr(event.Res)))
-				//log.Println("Setting return vals: ", event.Res)
-				op.Ret_N = N_ptr
+				//N_ptr := (*int)(unsafe.Pointer(uintptr(event.Obj)))
+				//log.Println("Setting return vals: ", *event.Obj)
+				*(op.Ret_N) = int(event.Res)
 				*(op.Ret_Err) = nil
 				*(op.Ret_Valid) = true
 
