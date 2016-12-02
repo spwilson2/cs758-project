@@ -22,15 +22,17 @@ const GEN_FILE_SUFFIX = ".gen"
 type Event_t int
 
 const (
-	T_READ  Event_t = 0
-	T_WRITE Event_t = 1
+	T_READ         Event_t = 0
+	T_WRITE        Event_t = 1
+	T_READ_STRING          = "Read"
+	T_WRITE_STRING         = "Write"
 )
 
 type TraceEvent struct {
 	startTime time.Time
 	stopTime  time.Time
 	id        int32
-	traceType int32
+	eventType Event_t
 }
 
 type TraceList struct {
@@ -43,6 +45,7 @@ var traces TraceList
 
 func NewTraceEvent(traceType Event_t) *TraceEvent {
 	var newTrace TraceEvent
+	newTrace.eventType = traceType
 	traces.addTrace(&newTrace)
 	newTrace.id = atomic.AddInt32(&traces.idCounter, 1)
 	return &newTrace
@@ -64,7 +67,19 @@ func (list *TraceList) addTrace(event *TraceEvent) {
 
 func (log *TraceList) printLog() {
 	for _, entry := range log.list {
-		fmt.Printf("%v\n", *entry)
+
+		var opString string
+
+		switch entry.eventType {
+		case T_READ:
+			opString = T_READ_STRING
+		case T_WRITE:
+			opString = T_WRITE_STRING
+		}
+
+		fmt.Printf("Operation: %-8s ", opString)
+		fmt.Printf("Time: %-10d\n", entry.stopTime.Sub(entry.startTime).Nanoseconds())
+		//fmt.Printf("%v\n", *entry)
 	}
 }
 
@@ -78,7 +93,6 @@ var f_readOffset int
 var f_writeOffset int
 var f_numFiles int
 var f_files []string
-var f_blocking bool
 
 func main() {
 
@@ -91,7 +105,6 @@ func main() {
 
 func getArgs() {
 
-	flag.BoolVar(&f_blocking, "blocking", true, "Use blocking interface false uses async")
 	flag.IntVar(&f_threads, "t", 0, "Number of threads to test with")
 	flag.IntVar(&f_readSize, "rsize", 0, "Size of reads to execute")
 	flag.IntVar(&f_writeSize, "wsize", 0, "Size of writes to execute")
@@ -199,7 +212,9 @@ func runTest() {
 
 	//TODO: For now we use the same read/write buffer. Will need to change
 	// for tests.
-	buffer := make([]byte, int(math.Max(float64(f_writeSize), float64(f_readSize))))
+
+	wbuf := make([]byte, f_writeSize)
+	rbuf := make([]byte, f_readSize)
 
 	thread_collector := make(chan bool)
 	thread_count := 0
@@ -215,7 +230,16 @@ func runTest() {
 				offset := (op) * averageOffset
 
 				thread_count++
-				scheduleOp(handle, offset, buffer, writeOrder[op_index], use_threads, thread_collector)
+
+				readNotWrite := writeOrder[op_index]
+				var buffer []byte
+
+				if readNotWrite {
+					buffer = rbuf
+				} else {
+					buffer = wbuf
+				}
+				scheduleOp(handle, offset, buffer, readNotWrite, use_threads, thread_collector)
 			}
 		}
 	} else {
@@ -225,7 +249,7 @@ func runTest() {
 					offset := op * f_readOffset
 
 					thread_count++
-					scheduleOp(handle, offset, buffer, true, use_threads, thread_collector)
+					scheduleOp(handle, offset, rbuf, true, use_threads, thread_collector)
 				}
 			}
 		}
@@ -235,7 +259,7 @@ func runTest() {
 					offset := op * f_writeOffset
 
 					thread_count++
-					scheduleOp(handle, offset, buffer, false, use_threads, thread_collector)
+					scheduleOp(handle, offset, wbuf, false, use_threads, thread_collector)
 				}
 			}
 		}
@@ -304,31 +328,6 @@ func genFiles(num int, size int64) []string {
 	return file_list
 }
 
-//func performSequentialAsyncReadBenchmarks(opSize int) {
-//
-//	name := "SA.txt"
-//	buf := make([]byte, opSize)
-//
-//	//nonblocking.Creat(name, syscall.S_IRUSR|syscall.S_IWUSR)
-//	fd, err := nonblocking.Open(name, syscall.O_RDWR, 0)
-//	if err != nil {
-//		fmt.Fprintf(os.Stderr, "error opening file\n")
-//	}
-//
-//	executionTime := int64(0)
-//	elapsed := new(int64)
-//	for off := 0; off < opSize; off += 100 {
-//		scheduleNonblockingReadAt("SAW", fd, off, buf, elapsed)
-//		executionTime += *elapsed
-//	}
-//	fmt.Println(executionTime)
-//}
-//
-//func scheduleNonblockingReadAt(id string, fd int, off int, buf []byte, elapsed *int64) {
-//	defer un(trace(id, elapsed))
-//	nonblocking.ReadAt(fd, off, buf)
-//}
-
 func panic_chk(err error) {
 	if err != nil {
 		fmt.Println(err)
@@ -342,18 +341,6 @@ func assert(val bool, message ...interface{}) {
 		panic(nil)
 	}
 }
-
-/*
-	These functions can be used together to benchmark a functions. Simply provide
-	a unique identifier that is used for fmtging when calling the functions using
-	the defer keyword:
-	e.g. defer un(trace("testId"))
-	Basically, the nested function trace() is called immediately and that grabs
-	the start time which is passed to un(); however, un() is not executed until
-	the end of the function. This Is pretty clean, but you'll need a seperate
-	function that must start with this and continue no code beyond what you
-	want to benchmark.
-*/
 
 func trace(id string, elapsed *int64) (string, time.Time, *int64) {
 	return id, time.Now(), elapsed
