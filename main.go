@@ -93,6 +93,7 @@ var f_readOffset int
 var f_writeOffset int
 var f_numFiles int
 var f_files []string
+var f_mixOps bool
 
 func main() {
 
@@ -113,6 +114,7 @@ func getArgs() {
 	flag.IntVar(&f_readOffset, "roff", 0, "Offset for each additional read")
 	flag.IntVar(&f_writeOffset, "woff", 0, "Offset for each additional write")
 	flag.IntVar(&f_numFiles, "nfiles", 0, "Number of different files to dispatch r/w's to")
+	flag.BoolVar(&f_mixOps, "mix", false, "Mix both reads and writes at the same time")
 
 	var file_list string
 	flag.StringVar(&file_list, "files", "", "Comma separated list of files to dispatch r/w's, overrids nfiles")
@@ -158,7 +160,6 @@ func runTest() {
 	var use_threads bool
 	var do_read bool
 	var do_write bool
-	var do_mixed bool
 	var file_list []string
 	var file_list_handles []int
 
@@ -197,10 +198,12 @@ func runTest() {
 
 	// Generate an ordering of the operations to use - not going to
 	// truely limit reads and writes to their count, but will help.
-	if do_mixed {
-		split := int((float64(f_numReads-f_numWrites) / float64(math.MaxInt64)) * math.MaxInt64)
+	if f_mixOps {
+		split := (float64(f_numReads-f_numWrites) / float64(math.MaxInt64)) * math.MaxInt64
 		for i := 0; i < f_numReads+f_numWrites; i++ {
-			writeOrder = append(writeOrder, rand.Int() >= split)
+			val := rand.NormFloat64()
+			ret := val >= float64(split)
+			writeOrder = append(writeOrder, ret)
 		}
 
 		// Approximate the offset we will use in the file.
@@ -220,7 +223,7 @@ func runTest() {
 	thread_count := 0
 
 	/* Execute the tests. */
-	if do_mixed {
+	if f_mixOps {
 
 		ops_per_file := reads_per_file + writes_per_file
 
