@@ -99,8 +99,6 @@ func getArgs() {
 
 	flag.Parse()
 
-	fmt.Println("", f_numFiles)
-
 	/* Check for invalid arguments. */
 	switch {
 	case f_threads < 0:
@@ -161,7 +159,7 @@ func runTest() {
 		file_list = f_files
 	} else {
 		//Approximate the max file size we will need to read.
-		maxSize := ((f_numReads / f_numFiles) * f_readOffset) + f_readOffset
+		maxSize := int(((float64(f_numReads) / float64(f_numFiles)) * float64(f_readOffset))) + f_readSize
 		file_list = genFiles(f_numFiles, int64(maxSize))
 	}
 
@@ -247,7 +245,7 @@ func scheduleOp(file, offset int, buffer []byte, readNotWrite, threaded bool) {
 		trace.stop()
 
 		panic_chk(err)
-		assert(ret == len(buffer), "Op length did not match request size.", eventType, offset, ret, len(buffer))
+		assert(ret == len(buffer))
 	}
 
 	if threaded {
@@ -268,7 +266,8 @@ func genFiles(num int, size int64) []string {
 		file_p, err := os.OpenFile(file_name, os.O_CREATE|os.O_WRONLY, 0777)
 		panic_chk(err)
 		file_list = append(file_list, file_name)
-		file_p.WriteAt(buf, size)
+		_, err = file_p.WriteAt(buf, size)
+		panic_chk(err)
 		err = file_p.Close()
 		panic_chk(err)
 	}
