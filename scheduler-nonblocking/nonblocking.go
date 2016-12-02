@@ -328,29 +328,7 @@ func scheduler(c chan Operation) {
 				// save this op as inflight
 				inflight[iocbp] = op
 
-<<<<<<< HEAD
-			if events <= 0 {
-				chk_err(IO_EVENTS_FAIL)
-			}
-=======
-				// check to see if we actually got valid results back
-				var event syscall.IoEvent
-				var timeout syscall.Timespec
-				events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
->>>>>>> BROKEN working on experimental scheduler
-
-				if events <= 0 {
-					chk_err(fail)
-				}
-
-				// set return vals
-				*(op.Ret_N) = events
-				*(op.Ret_Err) = nil
-				*(op.Ret_Valid) = true
-
 				//log.Println("Read succeeded... waiting for next op. ")
-
-			}
 
 			case op.Op == WRITEAT:
 				//log.Println("WRITEAT: ", op)
@@ -370,21 +348,6 @@ func scheduler(c chan Operation) {
 
 				// save op as inflight
 				inflight[iocbp] = op
-
-				// check to see if we actually got valid results back
-				var event syscall.IoEvent
-				var timeout syscall.Timespec
-				events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
-				if events <= 0 {
-					chk_err(fail)
-				}
-
-				// set return vals
-				*(op.Ret_N) = events
-				*(op.Ret_Err) = nil
-				*(op.Ret_Valid) = true
-
-				//log.Println("Write successful in scheduler")
 
 			// switch
 			default:
@@ -409,7 +372,7 @@ func scheduler(c chan Operation) {
 				op, ok := inflight[(*syscall.Iocb)(unsafe.Pointer(uintptr(event.Obj)))]
 				// make sure this event existed. If not, ???
 				if ok == false {
-					chk_err(fail)
+					chk_err(IO_EVENTS_FAIL)
 				}
 
 				//@TODO: FIX THIS
