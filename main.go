@@ -4,78 +4,78 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"syscall"
 	"time"
 
-	blocking "github.com/spwilson2/cs758-project/scheduler-blocking"
-	nonblocking "github.com/spwilson2/cs758-project/scheduler-nonblocking"
+	//blocking "github.com/spwilson2/cs758-project/scheduler-blocking"
+	//nonblocking "github.com/spwilson2/cs758-project/scheduler-nonblocking"
+	sut "github.com/spwilson2/cs758-project/scheduler-nonblocking"
 )
+
+const GEN_FILE_BASENAME = "testfile-"
+const GEN_FILE_SUFFIX = ".gen"
+
+/*Vars set by flags.*/
+var f_threads int
+var f_readSize int
+var f_writeSize int
+var f_numWrites int
+var f_numReads int
+var f_readOffset int
+var f_writeOffset int
+var f_numFiles int
+var f_files []string
+var f_blocking bool
 
 func main() {
 
+	parseArgs()
 	initSchedulers()
 
-	//runtime.GOMAXPROCS(2)
-	flags, opSize := parseArgs()
-
-	// Run Sequential Blocking Write Benchmark
-	if *flags[0] {
-		performSequentialBlockingWriteBenchmarks(*opSize)
-	}
-
-	// Run Sequential Blocking Read Benchmark
-	if *flags[1] {
-		performSequentialBlockingReadBenchmarks(*opSize)
-	}
-
-	// Run Random Blocking Write Benchmark
-	if *flags[2] {
-		performRandomBlockingWriteBenchmarks(*opSize)
-	}
-
-	// Run Random Blocking Read Benchmark
-	if *flags[3] {
-		performRandomBlockingReadBenchmarks(*opSize)
-	}
-
-	// Run Sequential Nonblocking Write Benchmark
-	if *flags[4] {
-		performSequentialAsyncWriteBenchmarks(*opSize)
-	}
-	// Run Sequential Nonblocking Read Benchmark
-	if *flags[5] {
-		performSequentialAsyncReadBenchmarks(*opSize)
-	}
-
-	// Run Random Nonblocking Write Benchmark
-	if *flags[6] {
-		performRandomAsyncWriteBenchmarks(*opSize)
-	}
-
-	// Run Random Nonblocking Write Benchmark
-	if *flags[7] {
-		performRandomAsyncReadBenchmarks(*opSize)
-	}
 }
 
-func parseArgs() ([]*bool, *int) {
-	flags := make([]*bool, 8)
+func parseArgs() {
+	//var Usage = func() {
+	//	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+	//	PrintDefaults()
+	//}
 
-	flags[0] = flag.Bool("SBW", false, "Should run the sequential blocking write benchmark")
-	flags[1] = flag.Bool("SBR", false, "Should run the sequential blocking read benchmark")
-	flags[2] = flag.Bool("RBW", false, "Should run the random blocking write benchmark")
-	flags[3] = flag.Bool("RBR", false, "Should run the random blocking read benchmark")
+	f_blocking = *flag.Bool("blocking", true, "Use blocking interface false uses async")
+	f_threads = *flag.Int("t", 0, "Number of threads to test with")
+	f_readSize = *flag.Int("rsize", 0, "Size of reads to execute")
+	f_writeSize = *flag.Int("wsize", 0, "Size of writes to execute")
+	f_numWrites = *flag.Int("nwrites", 0, "Number of writes to execute")
+	f_numReads = *flag.Int("nreads", 0, "Number of reads to execute")
+	f_readOffset = *flag.Int("roff", 0, "Offset for each additional read")
+	f_writeOffset = *flag.Int("woff", 0, "Offset for each additional write")
+	f_numFiles = *flag.Int("nfiles", 0, "Number of different files to dispatch r/w's to")
 
-	flags[4] = flag.Bool("SAW", false, "Should run the sequential nonblocking write benchmark")
-	flags[5] = flag.Bool("SAR", false, "Should run the sequential nonblocking read benchmark")
-	flags[6] = flag.Bool("RAW", false, "Should run the random nonblocking write benchmark")
-	flags[7] = flag.Bool("RAR", false, "Should run the random nonblocking read benchmark")
+	switch {
+	case f_threads < 0:
+		fallthrough
+	case f_readSize < 0:
+		fallthrough
+	case f_writeSize < 0:
+		fallthrough
+	case f_numWrites < 0:
+		fallthrough
+	case f_numReads < 0:
+		fallthrough
+	case f_readOffset < 0:
+		fallthrough
+	case f_writeOffset < 0:
+		fallthrough
+	case f_numFiles < 0:
+		flag.PrintDefaults()
+	default:
+	}
 
-	var opSize = flag.Int("size", 1000, "The size of the reads and/or writes to be performed")
+	file_list := *flag.String("files", "", "Comma separated list of files to dispatch r/w's, overrids nfiles")
 
-	flag.Parse()
-
-	return flags, opSize
+	if file_list != "" {
+		f_files = strings.Split(file_list, ",")
+	}
 }
 
 func initSchedulers() {
@@ -86,70 +86,74 @@ func initSchedulers() {
 	blocking.InitScheduler(blockingChan)
 }
 
-func performSequentialBlockingWriteBenchmarks(opSize int) {
-	name := "SB.txt"
-	buf := make([]byte, opSize)
-	for i := 0; i < opSize; i++ {
-		buf[i] = byte(i)
+func runTest() {
+	var use_threads bool
+	var do_read bool
+	var do_write bool
+	var do_mixed bool
+	var file_list []string
+	var file_list_handles []int
+
+	var reads_per_file int
+	var writes_per_file int
+
+	setupTests := func() {
+		use_threads = (f_threads >= 1)
+		if len(f_files) >= 1 {
+			file_list = f_files
+		} else {
+			file_list = genFiles(f_numFiles)
+		}
+
+		reads_per_file = f_numReads / len(file_list)
+		writes_per_file = f_numWrites / len(file_list)
+		do_read = (reads_per_file >= 1)
+		do_write = (writes_per_file >= 1)
+
+		// Open the files first.
+		for _, file_name := range file_list {
+			handle, err := sut.OpenFile(file_name)
+			panic_chk(err)
+			Append(file_list_handles, handle)
+		}
 	}
 
-	blocking.Creat(name, syscall.S_IRUSR|syscall.S_IWUSR)
-	fd, err := blocking.Open(name, syscall.O_RDWR, 0)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error opening file\n")
+	if do_mixed {
+
+	} else {
+		for _, handle := range file_list_handles {
+			for op_num := range reads_per_file {
+
+			}
+		}
+		for _, handle := range file_list_handles {
+			for op_num := range writes_per_file {
+
+			}
+		}
 	}
 
-	executionTime := int64(0)
-	elapsed := new(int64)
-	for off := 0; off < opSize; off += 100 {
-		scheduleBlockingWriteAt("SBW", fd, off, buf, elapsed)
-		executionTime += *elapsed
-	}
-	fmt.Println(executionTime)
 }
 
-func performSequentialBlockingReadBenchmarks(opSize int) {
-	name := "SB.txt"
-	buf := make([]byte, opSize)
-
-	//blocking.Creat(name, syscall.S_IRUSR|syscall.S_IWUSR)
-	fd, err := blocking.Open(name, syscall.O_RDWR, 0)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error opening file\n")
-	}
-
-	executionTime := int64(0)
-	elapsed := new(int64)
-	for off := 0; off < opSize; off += 100 {
-		scheduleBlockingReadAt("SBW", fd, off, buf, elapsed)
-		executionTime += *elapsed
-	}
-	fmt.Println(executionTime)
+func mixedTests() {
 }
 
-func performSequentialAsyncWriteBenchmarks(opSize int) {
-	name := "SA.txt"
-	buf := make([]byte, opSize)
-	for i := 0; i < opSize; i++ {
-		buf[i] = byte(i)
+// Generate a list of files (making sure they exist)
+func genFiles(num int) []string {
+	var file_list []string
+	for val := range num {
+		file_name := GEN_FILE_BASENAME + string(val) + GEN_FILE_SUFFIX
+		file_p, err := os.OpenFile(file_name, os.O_CREATE, 0)
+		panic_chk(err)
+		Append(file_list)
+		err = file_p.Close()
+		panic_chk(err)
 	}
-
-	nonblocking.Creat(name, syscall.S_IRUSR|syscall.S_IWUSR)
-	fd, err := nonblocking.Open(name, syscall.O_RDWR, 0)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error opening file\n")
-	}
-
-	executionTime := int64(0)
-	elapsed := new(int64)
-	for off := 0; off < opSize; off += 100 {
-		scheduleNonblockingWriteAt("SAW", fd, off, buf, elapsed)
-		executionTime += *elapsed
-	}
-	fmt.Println(executionTime)
+	return file_list
 }
 
 func performSequentialAsyncReadBenchmarks(opSize int) {
+
 	name := "SA.txt"
 	buf := make([]byte, opSize)
 
@@ -234,6 +238,13 @@ func scheduleNonblockingRead(id string, fd int, buf []byte, elapsed *int64) {
 func scheduleNonblockingReadAt(id string, fd int, off int, buf []byte, elapsed *int64) {
 	defer un(trace(id, elapsed))
 	nonblocking.ReadAt(fd, off, buf)
+}
+
+func panic_chk(err error) {
+	if err != nil {
+		fmt.Println(print(err))
+		panic(err)
+	}
 }
 
 /*
