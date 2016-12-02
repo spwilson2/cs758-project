@@ -16,7 +16,7 @@ import (
 	//sut "github.com/spwilson2/cs758-project/scheduler-nonblocking"
 )
 
-const GEN_FILE_BASENAME = "testfile-"
+const GEN_FILE_BASENAME = "generated/testfile-"
 const GEN_FILE_SUFFIX = ".gen"
 
 type Event_t int
@@ -34,7 +34,7 @@ type TraceEvent struct {
 }
 
 type TraceList struct {
-	list      []TraceEvent
+	list      []*TraceEvent
 	lock      sync.Mutex
 	idCounter int32
 }
@@ -58,8 +58,14 @@ func (event *TraceEvent) stop() {
 
 func (list *TraceList) addTrace(event *TraceEvent) {
 	list.lock.Lock()
-	list.list = append(list.list, *event)
+	list.list = append(list.list, event)
 	list.lock.Unlock()
+}
+
+func (log *TraceList) printLog() {
+	for _, entry := range log.list {
+		fmt.Printf("%v\n", *entry)
+	}
 }
 
 /*Vars set by flags.*/
@@ -79,6 +85,7 @@ func main() {
 	getArgs()
 	initScheduler()
 	runTest()
+	traces.printLog()
 
 }
 
@@ -194,14 +201,21 @@ func runTest() {
 	// for tests.
 	buffer := make([]byte, int(math.Max(float64(f_writeSize), float64(f_readSize))))
 
+	thread_collector := make(chan bool)
+	thread_count := 0
+
 	/* Execute the tests. */
 	if do_mixed {
+
 		ops_per_file := reads_per_file + writes_per_file
+
 		for iter, handle := range file_list_handles {
 			for op := 0; op < ops_per_file; op++ {
 				op_index := (iter * ops_per_file) + op
 				offset := (op) * averageOffset
-				scheduleOp(handle, offset, buffer, writeOrder[op_index], use_threads)
+
+				thread_count++
+				scheduleOp(handle, offset, buffer, writeOrder[op_index], use_threads, thread_collector)
 			}
 		}
 	} else {
@@ -209,7 +223,9 @@ func runTest() {
 			for _, handle := range file_list_handles {
 				for op := 0; op < reads_per_file; op++ {
 					offset := op * f_readOffset
-					scheduleOp(handle, offset, buffer, true, use_threads)
+
+					thread_count++
+					scheduleOp(handle, offset, buffer, true, use_threads, thread_collector)
 				}
 			}
 		}
@@ -217,15 +233,26 @@ func runTest() {
 			for _, handle := range file_list_handles {
 				for op := 0; op < writes_per_file; op++ {
 					offset := op * f_writeOffset
-					scheduleOp(handle, offset, buffer, false, use_threads)
+
+					thread_count++
+					scheduleOp(handle, offset, buffer, false, use_threads, thread_collector)
 				}
 			}
 		}
 	}
 
+	if use_threads {
+		/* Finish the multithreaded test. */
+		for thread := 0; thread < thread_count; thread++ {
+			_ = <-thread_collector
+		}
+	}
+
+	/* Cleanup from the tests. */
+
 }
 
-func scheduleOp(file, offset int, buffer []byte, readNotWrite, threaded bool) {
+func scheduleOp(file, offset int, buffer []byte, readNotWrite, threaded bool, collector chan bool) {
 
 	var eventType Event_t
 	var op func(int, int, []byte) (int, error)
@@ -246,6 +273,9 @@ func scheduleOp(file, offset int, buffer []byte, readNotWrite, threaded bool) {
 
 		panic_chk(err)
 		assert(ret == len(buffer))
+		if threaded {
+			collector <- true
+		}
 	}
 
 	if threaded {
