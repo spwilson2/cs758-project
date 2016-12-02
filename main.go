@@ -3,18 +3,64 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math"
+	rand "math/rand"
 	"os"
+	"strconv"
 	"strings"
-	"syscall"
+	"sync"
+	atomic "sync/atomic"
 	"time"
 
-	//blocking "github.com/spwilson2/cs758-project/scheduler-blocking"
-	//nonblocking "github.com/spwilson2/cs758-project/scheduler-nonblocking"
-	sut "github.com/spwilson2/cs758-project/scheduler-nonblocking"
+	sut "github.com/spwilson2/cs758-project/scheduler-blocking"
+	//sut "github.com/spwilson2/cs758-project/scheduler-nonblocking"
 )
 
 const GEN_FILE_BASENAME = "testfile-"
 const GEN_FILE_SUFFIX = ".gen"
+
+type Event_t int
+
+const (
+	T_READ  Event_t = 0
+	T_WRITE Event_t = 1
+)
+
+type TraceEvent struct {
+	startTime time.Time
+	stopTime  time.Time
+	id        int32
+	traceType int32
+}
+
+type TraceList struct {
+	list      []TraceEvent
+	lock      sync.Mutex
+	idCounter int32
+}
+
+var traces TraceList
+
+func NewTraceEvent(traceType Event_t) *TraceEvent {
+	var newTrace TraceEvent
+	traces.addTrace(&newTrace)
+	newTrace.id = atomic.AddInt32(&traces.idCounter, 1)
+	return &newTrace
+}
+
+func (event *TraceEvent) start() {
+	event.startTime = time.Now()
+}
+
+func (event *TraceEvent) stop() {
+	event.stopTime = time.Now()
+}
+
+func (list *TraceList) addTrace(event *TraceEvent) {
+	list.lock.Lock()
+	list.list = append(list.list, *event)
+	list.lock.Unlock()
+}
 
 /*Vars set by flags.*/
 var f_threads int
@@ -30,27 +76,32 @@ var f_blocking bool
 
 func main() {
 
-	parseArgs()
-	initSchedulers()
+	getArgs()
+	initScheduler()
+	runTest()
 
 }
 
-func parseArgs() {
-	//var Usage = func() {
-	//	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
-	//	PrintDefaults()
-	//}
+func getArgs() {
 
-	f_blocking = *flag.Bool("blocking", true, "Use blocking interface false uses async")
-	f_threads = *flag.Int("t", 0, "Number of threads to test with")
-	f_readSize = *flag.Int("rsize", 0, "Size of reads to execute")
-	f_writeSize = *flag.Int("wsize", 0, "Size of writes to execute")
-	f_numWrites = *flag.Int("nwrites", 0, "Number of writes to execute")
-	f_numReads = *flag.Int("nreads", 0, "Number of reads to execute")
-	f_readOffset = *flag.Int("roff", 0, "Offset for each additional read")
-	f_writeOffset = *flag.Int("woff", 0, "Offset for each additional write")
-	f_numFiles = *flag.Int("nfiles", 0, "Number of different files to dispatch r/w's to")
+	flag.BoolVar(&f_blocking, "blocking", true, "Use blocking interface false uses async")
+	flag.IntVar(&f_threads, "t", 0, "Number of threads to test with")
+	flag.IntVar(&f_readSize, "rsize", 0, "Size of reads to execute")
+	flag.IntVar(&f_writeSize, "wsize", 0, "Size of writes to execute")
+	flag.IntVar(&f_numWrites, "nwrites", 0, "Number of writes to execute")
+	flag.IntVar(&f_numReads, "nreads", 0, "Number of reads to execute")
+	flag.IntVar(&f_readOffset, "roff", 0, "Offset for each additional read")
+	flag.IntVar(&f_writeOffset, "woff", 0, "Offset for each additional write")
+	flag.IntVar(&f_numFiles, "nfiles", 0, "Number of different files to dispatch r/w's to")
 
+	var file_list string
+	flag.StringVar(&file_list, "files", "", "Comma separated list of files to dispatch r/w's, overrids nfiles")
+
+	flag.Parse()
+
+	fmt.Println("", f_numFiles)
+
+	/* Check for invalid arguments. */
 	switch {
 	case f_threads < 0:
 		fallthrough
@@ -71,22 +122,21 @@ func parseArgs() {
 	default:
 	}
 
-	file_list := *flag.String("files", "", "Comma separated list of files to dispatch r/w's, overrids nfiles")
+	// TODO
+	/* Assert that we have set at least one testable configuration. */
 
 	if file_list != "" {
 		f_files = strings.Split(file_list, ",")
 	}
 }
 
-func initSchedulers() {
-	nonblockingChan := make(chan nonblocking.Operation)
-	nonblocking.InitScheduler(nonblockingChan)
-
-	blockingChan := make(chan blocking.Operation)
-	blocking.InitScheduler(blockingChan)
+func initScheduler() {
+	c := make(chan sut.Operation)
+	sut.InitScheduler(c)
 }
 
 func runTest() {
+
 	var use_threads bool
 	var do_read bool
 	var do_write bool
@@ -94,156 +144,173 @@ func runTest() {
 	var file_list []string
 	var file_list_handles []int
 
+	var writeOrder []bool
+
 	var reads_per_file int
 	var writes_per_file int
 
-	setupTests := func() {
-		use_threads = (f_threads >= 1)
-		if len(f_files) >= 1 {
-			file_list = f_files
-		} else {
-			file_list = genFiles(f_numFiles)
-		}
+	// Only used in mixed case
+	var averageOffset int
 
-		reads_per_file = f_numReads / len(file_list)
-		writes_per_file = f_numWrites / len(file_list)
-		do_read = (reads_per_file >= 1)
-		do_write = (writes_per_file >= 1)
+	/* Setup test variables */
+	rand.Seed(time.Now().UnixNano())
 
-		// Open the files first.
-		for _, file_name := range file_list {
-			handle, err := sut.OpenFile(file_name)
-			panic_chk(err)
-			Append(file_list_handles, handle)
-		}
+	use_threads = (f_threads >= 1)
+
+	if len(f_files) >= 1 {
+		file_list = f_files
+	} else {
+		//Approximate the max file size we will need to read.
+		maxSize := ((f_numReads / f_numFiles) * f_readOffset) + f_readOffset
+		file_list = genFiles(f_numFiles, int64(maxSize))
 	}
 
+	reads_per_file = f_numReads / len(file_list)
+	writes_per_file = f_numWrites / len(file_list)
+	do_read = (reads_per_file >= 1)
+	do_write = (writes_per_file >= 1)
+
+	// Open the files to be tested.
+	for _, file_name := range file_list {
+		handle, err := sut.OpenFile(file_name)
+		panic_chk(err)
+		file_list_handles = append(file_list_handles, handle)
+	}
+
+	// Generate an ordering of the operations to use - not going to
+	// truely limit reads and writes to their count, but will help.
 	if do_mixed {
+		split := int((float64(f_numReads-f_numWrites) / float64(math.MaxInt64)) * math.MaxInt64)
+		for i := 0; i < f_numReads+f_numWrites; i++ {
+			writeOrder = append(writeOrder, rand.Int() >= split)
+		}
 
-	} else {
-		for _, handle := range file_list_handles {
-			for op_num := range reads_per_file {
+		// Approximate the offset we will use in the file.
+		// Divide first to avoid overflow.
+		combinedOps := f_numReads + f_numWrites
 
+		averageOffset = int(float64(f_readOffset)/float64(combinedOps)*float64(f_numReads) + (float64(f_writeOffset)/float64(combinedOps))*float64(f_numWrites))
+	}
+
+	//TODO: For now we use the same read/write buffer. Will need to change
+	// for tests.
+	buffer := make([]byte, int(math.Max(float64(f_writeSize), float64(f_readSize))))
+
+	/* Execute the tests. */
+	if do_mixed {
+		ops_per_file := reads_per_file + writes_per_file
+		for iter, handle := range file_list_handles {
+			for op := 0; op < ops_per_file; op++ {
+				op_index := (iter * ops_per_file) + op
+				offset := (op) * averageOffset
+				scheduleOp(handle, offset, buffer, writeOrder[op_index], use_threads)
 			}
 		}
-		for _, handle := range file_list_handles {
-			for op_num := range writes_per_file {
-
+	} else {
+		if do_read {
+			for _, handle := range file_list_handles {
+				for op := 0; op < reads_per_file; op++ {
+					offset := op * f_readOffset
+					scheduleOp(handle, offset, buffer, true, use_threads)
+				}
+			}
+		}
+		if do_write {
+			for _, handle := range file_list_handles {
+				for op := 0; op < writes_per_file; op++ {
+					offset := op * f_writeOffset
+					scheduleOp(handle, offset, buffer, false, use_threads)
+				}
 			}
 		}
 	}
 
 }
 
-func mixedTests() {
+func scheduleOp(file, offset int, buffer []byte, readNotWrite, threaded bool) {
+
+	var eventType Event_t
+	var op func(int, int, []byte) (int, error)
+
+	if readNotWrite {
+		op = sut.ReadAt
+		eventType = T_READ
+	} else {
+		op = sut.WriteAt
+		eventType = T_WRITE
+	}
+
+	execOp := func() {
+		trace := NewTraceEvent(eventType)
+		trace.start()
+		ret, err := op(file, offset, buffer)
+		trace.stop()
+
+		panic_chk(err)
+		assert(ret == len(buffer), "Op length did not match request size.", eventType, offset, ret, len(buffer))
+	}
+
+	if threaded {
+		go execOp()
+	} else {
+		execOp()
+	}
 }
 
 // Generate a list of files (making sure they exist)
-func genFiles(num int) []string {
+func genFiles(num int, size int64) []string {
 	var file_list []string
-	for val := range num {
-		file_name := GEN_FILE_BASENAME + string(val) + GEN_FILE_SUFFIX
-		file_p, err := os.OpenFile(file_name, os.O_CREATE, 0)
+
+	var buf = []byte{0}
+
+	for val := 0; val < num; val++ {
+		file_name := GEN_FILE_BASENAME + strconv.Itoa(val) + GEN_FILE_SUFFIX
+		file_p, err := os.OpenFile(file_name, os.O_CREATE|os.O_WRONLY, 0777)
 		panic_chk(err)
-		Append(file_list)
+		file_list = append(file_list, file_name)
+		file_p.WriteAt(buf, size)
 		err = file_p.Close()
 		panic_chk(err)
 	}
 	return file_list
 }
 
-func performSequentialAsyncReadBenchmarks(opSize int) {
-
-	name := "SA.txt"
-	buf := make([]byte, opSize)
-
-	//nonblocking.Creat(name, syscall.S_IRUSR|syscall.S_IWUSR)
-	fd, err := nonblocking.Open(name, syscall.O_RDWR, 0)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error opening file\n")
-	}
-
-	executionTime := int64(0)
-	elapsed := new(int64)
-	for off := 0; off < opSize; off += 100 {
-		scheduleNonblockingReadAt("SAW", fd, off, buf, elapsed)
-		executionTime += *elapsed
-	}
-	fmt.Println(executionTime)
-}
-
-func performRandomBlockingWriteBenchmarks(opSize int) {
-	elapsed := new(int64)
-	defer un(trace("RBW", elapsed))
-	fmt.Println(*elapsed)
-}
-
-func performRandomBlockingReadBenchmarks(opSize int) {
-	elapsed := new(int64)
-	defer un(trace("RBR", elapsed))
-	fmt.Println(*elapsed)
-}
-
-func performRandomAsyncWriteBenchmarks(opSize int) {
-	elapsed := new(int64)
-	defer un(trace("RAW", elapsed))
-	fmt.Println(*elapsed)
-}
-
-func performRandomAsyncReadBenchmarks(opSize int) {
-	elapsed := new(int64)
-	defer un(trace("RAR", elapsed))
-	fmt.Println(*elapsed)
-}
-
-/*
-	Helper functions for scheduling blocking and non blocking operations
-*/
-
-func scheduleBlockingWrite(id string, fd int, buf []byte, elapsed *int64) {
-	defer un(trace(id, elapsed))
-	blocking.Write(fd, buf)
-}
-
-func scheduleBlockingWriteAt(id string, fd int, off int, buf []byte, elapsed *int64) {
-	defer un(trace(id, elapsed))
-	blocking.WriteAt(fd, off, buf)
-}
-
-func scheduleBlockingRead(id string, fd int, buf []byte, elapsed *int64) {
-	defer un(trace(id, elapsed))
-	blocking.Read(fd, buf)
-}
-
-func scheduleBlockingReadAt(id string, fd int, off int, buf []byte, elapsed *int64) {
-	defer un(trace(id, elapsed))
-	blocking.ReadAt(fd, off, buf)
-}
-
-func scheduleNonblockingWrite(id string, fd int, buf []byte, elapsed *int64) {
-	defer un(trace(id, elapsed))
-	nonblocking.Write(fd, buf)
-}
-
-func scheduleNonblockingWriteAt(id string, fd int, off int, buf []byte, elapsed *int64) {
-	defer un(trace(id, elapsed))
-	nonblocking.WriteAt(fd, off, buf)
-}
-
-func scheduleNonblockingRead(id string, fd int, buf []byte, elapsed *int64) {
-	defer un(trace(id, elapsed))
-	nonblocking.Read(fd, buf)
-}
-
-func scheduleNonblockingReadAt(id string, fd int, off int, buf []byte, elapsed *int64) {
-	defer un(trace(id, elapsed))
-	nonblocking.ReadAt(fd, off, buf)
-}
+//func performSequentialAsyncReadBenchmarks(opSize int) {
+//
+//	name := "SA.txt"
+//	buf := make([]byte, opSize)
+//
+//	//nonblocking.Creat(name, syscall.S_IRUSR|syscall.S_IWUSR)
+//	fd, err := nonblocking.Open(name, syscall.O_RDWR, 0)
+//	if err != nil {
+//		fmt.Fprintf(os.Stderr, "error opening file\n")
+//	}
+//
+//	executionTime := int64(0)
+//	elapsed := new(int64)
+//	for off := 0; off < opSize; off += 100 {
+//		scheduleNonblockingReadAt("SAW", fd, off, buf, elapsed)
+//		executionTime += *elapsed
+//	}
+//	fmt.Println(executionTime)
+//}
+//
+//func scheduleNonblockingReadAt(id string, fd int, off int, buf []byte, elapsed *int64) {
+//	defer un(trace(id, elapsed))
+//	nonblocking.ReadAt(fd, off, buf)
+//}
 
 func panic_chk(err error) {
 	if err != nil {
-		fmt.Println(print(err))
-		panic(err)
+		fmt.Println(err)
+		panic("Panic!")
+	}
+}
+
+func assert(val bool, message ...interface{}) {
+	if !val {
+		fmt.Printf("%v\n", message)
+		panic(nil)
 	}
 }
 
