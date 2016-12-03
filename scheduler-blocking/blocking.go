@@ -86,7 +86,7 @@ func Write(fd int, p []byte) (n int, err error) {
 	channel <- op
 
 	for *ret_valid != true {
-		// spin until ret_err is valid
+		// spin until op complete
 		runtime.Gosched() // Allow preemption
 	}
 
@@ -114,7 +114,7 @@ func WriteAt(fd int, off int, p []byte) (n int, err error) {
 	channel <- op
 
 	for *ret_valid != true {
-		// spin until ret_err is valid
+		// spin until op complete
 		runtime.Gosched() // Allow preemption
 	}
 
@@ -142,7 +142,7 @@ func Read(fd int, p []byte) (n int, err error) {
 	channel <- op
 
 	for *ret_valid != true {
-		// spin until ret_err is valid
+		// spin until op complete
 		runtime.Gosched() // Allow preemption
 	}
 
@@ -170,7 +170,7 @@ func ReadAt(fd int, off int, p []byte) (n int, err error) {
 	channel <- op
 
 	for *ret_valid != true {
-		// spin until ret_err is valid
+		// spin until op complete
 		runtime.Gosched() // Allow preemption
 	}
 
