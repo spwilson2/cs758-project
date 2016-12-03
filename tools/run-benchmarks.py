@@ -29,7 +29,7 @@ class Test():
     # Expect output to be 'key: value' pairs
     RESULT_REGEX = re.compile('(?P<key>\w+): (?P<val>\w+)')
 
-    def __init__(self, blocking, GOMAXPROCS=None, **kwargs):
+    def __init__(self, blocking, name=None, GOMAXPROCS=None, **kwargs):
         for flag in kwargs.keys():
             assert flag in Go.TEST_FLAGS
 
@@ -43,6 +43,7 @@ class Test():
         self.flags.update(kwargs)
 
         self.GOMAXPROCS = None if GOMAXPROCS is None else str(GOMAXPROCS)
+        self.name = None if name is None else str(name).replace(' ', '_')
 
     def run(self):
         program = self.program
@@ -79,6 +80,10 @@ class Test():
 
         return results
 
+    def saveResults(self, results):
+        result_filename = genFilename(pfx=self.name+'-' if self.name is not None else '')
+        plot.save_csv(results, joinpath(CSV_DIR, result_filename + '-results.csv'))
+        plot.bar(results, file_=joinpath(PLOT_DIR, result_filename + '-results.png'))
 
 
 def setupProject():
@@ -89,13 +94,8 @@ def main():
     setupProject()
     #Test(blocking=True, rsize='1000', nreads='10', nfiles='1').run()
     #Test(blocking=False, rsize='1000', nreads='10', nfiles='1').run()
-    #results = Test(blocking=False, GOMAXPROCS=3, threads='2', rsize='1000', nreads='10', nfiles='1').getResults()
-    results = Test(blocking=False, rsize='1000', nreads='10', nfiles='1', nwrites='10',
-            wsize='1000').getResults()
-
-    result_filename = genFilename()
-    plot.save_csv(results, joinpath(CSV_DIR, result_filename + '-results.csv'))
-    plot.bar(results, file_=joinpath(PLOT_DIR, result_filename + '-results.png'))
+    test = Test(name='In order mixed reads', blocking=False, rsize='1000', nreads='10', nfiles='1', nwrites='10', wsize='1000')
+    test.saveResults(test.getResults())
 
 if __name__ == '__main__':
     parse_args()
