@@ -108,7 +108,7 @@ func main() {
 
 func getArgs() {
 
-	flag.IntVar(&f_threads, "t", 0, "Number of threads to test with")
+	flag.IntVar(&f_threads, "threads", 0, "Number of threads to test with")
 	flag.IntVar(&f_readSize, "rsize", 0, "Size of reads to execute")
 	flag.IntVar(&f_writeSize, "wsize", 0, "Size of writes to execute")
 	flag.IntVar(&f_numWrites, "nwrites", 0, "Number of writes to execute")
