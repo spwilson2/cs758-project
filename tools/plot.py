@@ -7,7 +7,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as pyplot
 
 from constants import *
-
+COLORS = [name for name, hex in matplotlib.colors.cnames.iteritems()]
 
 def save_csv(results, file_):
     file_ = open(file_, 'w')
@@ -48,7 +48,8 @@ def bar(results,
 
     bars = []
     ops = []
-    x_loc_start = range(len(results))
+    #x_loc_start = range(len(split_results.keys()))
+    x_loc_start = [0]
 
     for op_num, (op, results) in enumerate(split_results.items()):
 
@@ -56,7 +57,7 @@ def bar(results,
         x_loc = [val + width*op_num for val in x_loc_start]
         meanLength = numpy.mean(results)
         lengthStd  = numpy.std(results)
-        bars.append(ax.bar(1, meanLength, width, yerr=lengthStd))
+        bars.append(ax.bar(x_loc, meanLength, width, color=COLORS[op_num], yerr=lengthStd))
         ops.append(op)
 
 

@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 import os
 import sys
 import subprocess
+import datetime
 
 ##############################################################################
 ## Flags                                                                    ##
@@ -31,6 +32,8 @@ def parse_args():
 
     printv(V_SPEW, 'Input Flags: ' + str(flags.__dict__))
 
+def genFilename(pfx='', sfx=''):
+    return pfx + str(datetime.datetime.now()).replace(' ','-') + sfx
 
 def command(program, *args):
     printv(V_SPEW, 'Running: ' + program)

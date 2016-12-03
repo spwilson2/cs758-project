@@ -68,9 +68,20 @@ class Test():
 
         return results
 
+    def getResults(self):
+        results = self.run()
+        results = Test.parseOutput(results)
+
+        # TODO: Remove once output from test is more verbose.
+        for result in results:
+            result.update(self.flags)
+            result['GOMAXPROCS'] = self.GOMAXPROCS
+
+        return results
+
+
 
 def setupProject():
-    #build_project()
     make()
 
 
@@ -78,11 +89,13 @@ def main():
     setupProject()
     #Test(blocking=True, rsize='1000', nreads='10', nfiles='1').run()
     #Test(blocking=False, rsize='1000', nreads='10', nfiles='1').run()
-    results = Test.parseOutput(Test(blocking=False, GOMAXPROCS=3, threads='2',
-        rsize='1000', nreads='10', nfiles='1').run())
+    #results = Test(blocking=False, GOMAXPROCS=3, threads='2', rsize='1000', nreads='10', nfiles='1').getResults()
+    results = Test(blocking=False, rsize='1000', nreads='10', nfiles='1', nwrites='10',
+            wsize='1000').getResults()
 
-    plot.save_csv(results, joinpath(CSV_DIR, 'results.csv'))
-    plot.bar(results, file_=joinpath(PLOT_DIR,'results.png'))
+    result_filename = genFilename()
+    plot.save_csv(results, joinpath(CSV_DIR, result_filename + '-results.csv'))
+    plot.bar(results, file_=joinpath(PLOT_DIR, result_filename + '-results.png'))
 
 if __name__ == '__main__':
     parse_args()

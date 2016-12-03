@@ -15,17 +15,26 @@ def generateFile(output_file, scheduler_repo):
     genmain.close()
 
 def build_project():
+    for file_ in ('amain', 'bmain'):
+        generate(file_+'.go')
+        build(file_)
+
+def build(file_):
     output = command('go version')
     compiler_version = output.strip()
     if compiler_version != MODDED_COMPILER_VERSION:
         fail('Not using the modded compiler!\n'+'Your compiler version is:' + compiler_version)
 
-    # Generate both copies of main for each scheduler type.
-    for args in ((ASYNC_SRC, ASYNC_REPO), (BLOCKING_SRC, BLOCKING_REPO)):
-        generateFile(*args)
+    if file_ == 'bmain':
+        command(' '.join(('go build -o', BLOCKING_BIN, BLOCKING_SRC)))
+    elif file_ == 'amain':
+        command(' '.join(('go build -o', ASYNC_BIN, ASYNC_SRC)))
 
-    command(' '.join(('go build -o', ASYNC_BIN, ASYNC_SRC)))
-    command(' '.join(('go build -o', BLOCKING_BIN, BLOCKING_SRC)))
+def generate(file_):
+    if file_ == 'bmain.go':
+        generateFile(BLOCKING_SRC, BLOCKING_REPO)
+    elif file_ == 'amain.go':
+        generateFile(ASYNC_SRC, ASYNC_REPO)
 
 def make():
     command(' '.join(('make -f', joinpath(DIR,'build.mk'), '-C', DIR)))
