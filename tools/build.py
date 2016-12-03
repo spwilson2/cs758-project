@@ -27,5 +27,8 @@ def build_project():
     command(' '.join(('go build -o', ASYNC_BIN, ASYNC_SRC)))
     command(' '.join(('go build -o', BLOCKING_BIN, BLOCKING_SRC)))
 
+def make():
+    command(' '.join(('make -f', joinpath(DIR,'build.mk'), '-C', DIR)))
+
 if __name__ == '__main__':
     build_project()

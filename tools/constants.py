@@ -1,18 +1,21 @@
 import re
 import sys
 import os
-_joinpath = os.path.join
+from util import joinpath as _joinpath
 
-DIR = os.path.realpath(__file__)
-BASE_DIR = os.path.dirname(os.path.realpath(_joinpath(DIR, '..')))
+DIR = os.path.dirname(os.path.realpath(__file__))
+BASE_DIR = os.path.realpath(_joinpath(DIR, '..'))
 GENDIR = _joinpath(BASE_DIR, 'generated')
 MODDED_COMPILER_VERSION = 'go version go1.7.3 linux/amd64'
-SRC_DIR = 'src'
+SRC_DIR = _joinpath(BASE_DIR, 'src')
+RESULT_DIR = _joinpath(BASE_DIR, 'results')
+CSV_DIR = _joinpath(RESULT_DIR, 'csv')
+PLOT_DIR = _joinpath(RESULT_DIR, 'plots')
 
 ##############################################################################
 ## File Generation Constants                                                ##
 ##############################################################################
-MAIN_SRC = _joinpath(BASE_DIR, SRC_DIR, 'main.go')
+MAIN_SRC = _joinpath(SRC_DIR, 'main.go')
 REPO_REGEX = re.compile("SCHEDULER_UNDER_TEST")
 SCHEDULER_IMPORT_NAME = 'sut'
 
@@ -33,14 +36,22 @@ GENERATED_WARING = '''\
 */''' % ' '.join(sys.argv)
 ##############################################################################
 
-TEST_FLAGS = {
-        "threads",
-        "rsize",
-        "wsize",
-        "nwrites",
-        "nreads",
-        "roff",
-        "woff",
-        "nfiles",
-        "mixed"
-        }
+##############################################################################
+## Go Program Constants                                                     ##
+##############################################################################
+class Go(object):
+    TEST_FLAGS = {
+            "threads",
+            "rsize",
+            "wsize",
+            "nwrites",
+            "nreads",
+            "roff",
+            "woff",
+            "nfiles",
+            "mixed"
+            }
+
+    OP_KEY = "Operation"
+    LENGTH_KEY = "Length"
+##############################################################################

@@ -79,7 +79,7 @@ func (log *TraceList) printLog() {
 		}
 
 		fmt.Printf("Operation: %-8s ", opString)
-		fmt.Printf("Time: %-10d\n", entry.stopTime.Sub(entry.startTime).Nanoseconds())
+		fmt.Printf("Length: %-10d\n", entry.stopTime.Sub(entry.startTime).Nanoseconds())
 		//fmt.Printf("%v\n", *entry)
 	}
 }
