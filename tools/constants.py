@@ -16,7 +16,7 @@ PLOT_DIR = _joinpath(RESULT_DIR, 'plots')
 ## File Generation Constants                                                ##
 ##############################################################################
 MAIN_SRC = _joinpath(SRC_DIR, 'main.go')
-REPO_REGEX = re.compile("SCHEDULER_UNDER_TEST")
+REPO_REGEX = re.compile("//SCHEDULER_UNDER_TEST")
 SCHEDULER_IMPORT_NAME = 'sut'
 
 ASYNC_SRC = _joinpath(GENDIR, 'amain.go')
