@@ -74,13 +74,7 @@ func Write(fd int, p []byte) (n int, err error) {
 
 func WriteAt(fd int, off int, p []byte) (n int, err error) {
 
-	// seek for non-zero offset
-	if off != 0 {
-		// 0 == SEEK_SET (from beginning)
-		syscall.Seek(fd, int64(off), 0)
-	}
-
-	return syscall.Write(fd, p)
+	return syscall.Pwrite(fd, p, int64(off))
 }
 
 /* Reads from file fd */
@@ -91,12 +85,8 @@ func Read(fd int, p []byte) (n int, err error) {
 /* Read from file, at offset off */
 func ReadAt(fd int, off int, p []byte) (n int, err error) {
 
-	if off != 0 {
-		// 0 == SEEK_SET (from beginning)
-		syscall.Seek(fd, int64(off), 0)
-	}
-
-	return syscall.Read(fd, p)
+	// 0 == SEEK_SET (from beginning)
+	return syscall.Pread(fd, p, int64(off))
 }
 
 /* Create file */

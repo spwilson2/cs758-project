@@ -221,25 +221,25 @@ func runTest() {
 
 func scheduleOp(file, offset int, buffer []byte, readNotWrite, threaded bool, collector chan bool) {
 
-	var eventType tracer.Event_t
-	var op func(int, int, []byte) (int, error)
-
-	if readNotWrite {
-		op = sut.ReadAt
-		eventType = tracer.T_READ
-	} else {
-		op = sut.WriteAt
-		eventType = tracer.T_WRITE
-	}
-
 	execOp := func() {
+		var eventType tracer.Event_t
+		var op func(int, int, []byte) (int, error)
+
+		if readNotWrite {
+			op = sut.ReadAt
+			eventType = tracer.T_READ
+		} else {
+			op = sut.WriteAt
+			eventType = tracer.T_WRITE
+		}
+
 		trace := tracer.NewTraceEvent(eventType, &tracer.GlobalTraceList)
 		trace.Start()
 		ret, err := op(file, offset, buffer)
 		trace.Stop()
 
 		panic_chk(err)
-		assert(ret == len(buffer))
+		assertF(ret == len(buffer), "ret: %v len: %v\n", ret, len(buffer))
 		if threaded {
 			collector <- true
 		}
@@ -278,9 +278,15 @@ func panic_chk(err error) {
 	}
 }
 
-func assert(val bool, message ...interface{}) {
+func assertF(val bool, format string, message ...interface{}) {
 	if !val {
-		fmt.Printf("%v\n", message)
+		fmt.Printf(format, message)
+		panic(nil)
+	}
+}
+
+func assert(val bool) {
+	if !val {
 		panic(nil)
 	}
 }
