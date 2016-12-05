@@ -96,7 +96,7 @@ def createAndRunTest(testName, blocking, rsize, nreads, nfiles, nwrites, wsize, 
 def main():
     setupProject()
 
-    createAndRunTest("In Order Mixed nonblocking", False, '1000', '10', '1', '10', '1000', Go.OP_KEY)
+    #createAndRunTest("In Order Mixed nonblocking", False, '1000', '10', '1', '10', '1000', Go.OP_KEY)
     createAndRunTest("In Order Mixed blocking", True, '1000', '10', '1', '10', '1000', Go.OP_KEY)
 
 if __name__ == '__main__':
