@@ -15,9 +15,7 @@ def generateFile(output_file, scheduler_repo):
     genmain.close()
 
 def build_project():
-    for file_ in ('amain', 'bmain'):
-        generate(file_+'.go')
-        build(file_)
+    make()
 
 def build(file_):
     output = command('go version')

@@ -6,83 +6,18 @@ package main
 import (
 	"flag"
 	"fmt"
+	tracer "github.com/spwilson2/cs758-project/tracer"
 	"math"
 	rand "math/rand"
 	"os"
 	"strconv"
 	"strings"
-	"sync"
-	atomic "sync/atomic"
 	"time"
-	SCHEDULER_UNDER_TEST
+	//SCHEDULER_UNDER_TEST
 )
 
 const GEN_FILE_BASENAME = "testfile-"
 const GEN_FILE_SUFFIX = ".gen"
-
-type Event_t int
-
-const (
-	T_READ         Event_t = 0
-	T_WRITE        Event_t = 1
-	T_READ_STRING          = "Read"
-	T_WRITE_STRING         = "Write"
-)
-
-type TraceEvent struct {
-	startTime time.Time
-	stopTime  time.Time
-	id        int32
-	eventType Event_t
-}
-
-type TraceList struct {
-	list      []*TraceEvent
-	lock      sync.Mutex
-	idCounter int32
-}
-
-var traces TraceList
-
-func NewTraceEvent(traceType Event_t) *TraceEvent {
-	var newTrace TraceEvent
-	newTrace.eventType = traceType
-	traces.addTrace(&newTrace)
-	newTrace.id = atomic.AddInt32(&traces.idCounter, 1)
-	return &newTrace
-}
-
-func (event *TraceEvent) start() {
-	event.startTime = time.Now()
-}
-
-func (event *TraceEvent) stop() {
-	event.stopTime = time.Now()
-}
-
-func (list *TraceList) addTrace(event *TraceEvent) {
-	list.lock.Lock()
-	list.list = append(list.list, event)
-	list.lock.Unlock()
-}
-
-func (log *TraceList) printLog() {
-	for _, entry := range log.list {
-
-		var opString string
-
-		switch entry.eventType {
-		case T_READ:
-			opString = T_READ_STRING
-		case T_WRITE:
-			opString = T_WRITE_STRING
-		}
-
-		fmt.Printf("Operation: %-8s ", opString)
-		fmt.Printf("Length: %-10d\n", entry.stopTime.Sub(entry.startTime).Nanoseconds())
-		//fmt.Printf("%v\n", *entry)
-	}
-}
 
 /*Vars set by flags.*/
 var f_threads int
@@ -102,7 +37,7 @@ func main() {
 	getArgs()
 	initScheduler()
 	runTest()
-	traces.printLog()
+	tracer.GlobalTraceList.PrintLog()
 
 }
 
@@ -286,22 +221,22 @@ func runTest() {
 
 func scheduleOp(file, offset int, buffer []byte, readNotWrite, threaded bool, collector chan bool) {
 
-	var eventType Event_t
+	var eventType tracer.Event_t
 	var op func(int, int, []byte) (int, error)
 
 	if readNotWrite {
 		op = sut.ReadAt
-		eventType = T_READ
+		eventType = tracer.T_READ
 	} else {
 		op = sut.WriteAt
-		eventType = T_WRITE
+		eventType = tracer.T_WRITE
 	}
 
 	execOp := func() {
-		trace := NewTraceEvent(eventType)
-		trace.start()
+		trace := tracer.NewTraceEvent(eventType, &tracer.GlobalTraceList)
+		trace.Start()
 		ret, err := op(file, offset, buffer)
-		trace.stop()
+		trace.Stop()
 
 		panic_chk(err)
 		assert(ret == len(buffer))
