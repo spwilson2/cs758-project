@@ -3,7 +3,7 @@ TARGETS:= $(addprefix ../generated/,$(TARGETS))
 GEN_SRCS:= $(addsuffix .go,$(TARGETS))
 
 .PHONY:all
-all: gen build
+all: build
 
 .PHONY:gen
 gen: $(GEN_SRCS)
@@ -11,5 +11,6 @@ gen: $(GEN_SRCS)
 	python -c 'import build; print build.generate("$(notdir $@)")'
 
 .PHONY:build
+build: $(TARGETS)
 ../generated/%:../generated/%.go
 	python -c 'import build; print build.build("$(notdir $@)")'
