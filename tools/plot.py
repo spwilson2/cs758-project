@@ -28,6 +28,7 @@ def autolabel(rects, ax):
 
 def bar(results,
         file_,
+        sortParameter,
         ylab=None,
         xlab=None,
         title=None):
@@ -36,10 +37,10 @@ def bar(results,
 
     # Split results by type of op
     for result in results:
-        op, length = result[Go.OP_KEY], result[Go.LENGTH_KEY]
-        if op not in split_results:
-            split_results[op] = []
-        split_results[op].append(int(length))
+        ind, length = result[sortParameter], result[Go.LENGTH_KEY]
+        if ind not in split_results:
+            split_results[ind] = []
+        split_results[ind].append(int(length))
 
     fig, ax = pyplot.subplots()
 
@@ -50,14 +51,14 @@ def bar(results,
     #x_loc_start = range(len(split_results.keys()))
     x_loc_start = [0]
 
-    for op_num, (op, results) in enumerate(split_results.items()):
+    for test_num, (ind, results) in enumerate(split_results.items()):
 
         # the x locations for op types
-        x_loc = [val + width*op_num for val in x_loc_start]
+        x_loc = [val + width*test_num for val in x_loc_start]
         meanLength = numpy.mean(results)
         lengthStd = numpy.std(results)
-        bars.append(ax.bar(x_loc, meanLength, width, color=COLORS[op_num], yerr=lengthStd))
-        ops.append(op)
+        bars.append(ax.bar(x_loc, meanLength, width, color=COLORS[test_num], yerr=lengthStd))
+        ops.append(ind)
 
     pyplot.tick_params(axis='x', which='both', bottom='off', top='off', labelbottom='off')
     ax.set_ylim(bottom=0)

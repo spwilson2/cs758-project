@@ -76,27 +76,28 @@ class Test():
         # TODO: Remove once output from test is more verbose.
         for result in results:
             result.update(self.flags)
+            result[Go.IO_TYPE_KEY] = 'blocking' if self.program == BLOCKING_BIN else 'nonblocking'
             result['GOMAXPROCS'] = self.GOMAXPROCS
 
         return results
 
-    def saveResults(self, results, chartName):
+    def saveResults(self, results, chartName, sortParameter):
         result_filename = genFilename(pfx=self.name+'-' if self.name is not None else '')
         plot.save_csv(results, joinpath(CSV_DIR, result_filename + '-results.csv'))
-        plot.bar(results, file_=joinpath(PLOT_DIR, result_filename + '-results.png'), title=chartName, ylab="execution time (ns)")
+        plot.bar(results, file_=joinpath(PLOT_DIR, result_filename + '-results.png'), sortParameter=sortParameter, title=chartName, ylab="execution time (ns)")
 
 def setupProject():
     make()
 
-def createAndRunTest(testName, blocking, rsize, nreads, nfiles, nwrites, wsize, gomaxprocs=None):
+def createAndRunTest(testName, blocking, rsize, nreads, nfiles, nwrites, wsize, sortParameter, gomaxprocs=None):
     test = Test(blocking=blocking, name=testName, GOMAXPROCS=gomaxprocs, rsize=rsize, nreads=nreads, nfiles=nfiles, nwrites=nwrites, wsize=wsize)
-    test.saveResults(test.getResults(), testName)
+    test.saveResults(test.getResults(), testName, sortParameter)
 
 def main():
     setupProject()
 
-    createAndRunTest("In Order Mixed nonblocking", False, '1000', '10', '1', '10', '1000')
-    createAndRunTest("In Order Mixed blocking", True, '1000', '10', '1', '10', '1000')
+    createAndRunTest("In Order Mixed nonblocking", False, '1000', '10', '1', '10', '1000', Go.OP_KEY)
+    createAndRunTest("In Order Mixed blocking", True, '1000', '10', '1', '10', '1000', Go.OP_KEY)
 
 if __name__ == '__main__':
     parse_args()

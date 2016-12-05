@@ -52,6 +52,7 @@ class Go(object):
             "mixed"
             }
 
+    IO_TYPE_KEY = "IoType"
     OP_KEY = "Operation"
     LENGTH_KEY = "Length"
 ##############################################################################
