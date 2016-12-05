@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	aio "github.com/spwilson2/cs758-project/libaio"
+	tracer "github.com/spwilson2/cs758-project/tracer"
 )
 
 var TestExport int
