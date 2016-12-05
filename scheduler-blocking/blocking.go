@@ -6,7 +6,6 @@ import (
 	"errors"
 	"log"
 	"os"
-	"runtime"
 	"syscall"
 )
 
@@ -75,13 +74,7 @@ func Write(fd int, p []byte) (n int, err error) {
 
 func WriteAt(fd int, off int, p []byte) (n int, err error) {
 
-	// seek for non-zero offset
-	if off != 0 {
-		// 0 == SEEK_SET (from beginning)
-		syscall.Seek(op.Fd, op.Off, 0)
-	}
-
-	return syscall.Write(fd, p)
+	return syscall.Pwrite(fd, p, int64(off))
 }
 
 /* Reads from file fd */
@@ -92,20 +85,14 @@ func Read(fd int, p []byte) (n int, err error) {
 /* Read from file, at offset off */
 func ReadAt(fd int, off int, p []byte) (n int, err error) {
 
-	if off != 0 {
-		// 0 == SEEK_SET (from beginning)
-		syscall.Seek(op.Fd, op.Off, 0)
-	}
-
-	return syscall.Read(op.Fd, op.Buf)
+	// 0 == SEEK_SET (from beginning)
+	return syscall.Pread(fd, p, int64(off))
 }
 
 /* Create file */
 func Creat(path string, mode uint32) (fd int, err error) {
 	return syscall.Creat(path, mode)
 }
-
-var channel chan Operation
 
 func InitScheduler(c chan Operation) {
 
@@ -116,6 +103,6 @@ func InitScheduler(c chan Operation) {
 
 	// set up goroutine for scheduler to run, with the passed channel
 	channel = c // global state
-	go scheduler(c)
+	//go scheduler(c)
 	initialized = true
 }
