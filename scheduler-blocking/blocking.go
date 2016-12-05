@@ -106,3 +106,7 @@ func InitScheduler(c chan Operation) {
 	//go scheduler(c)
 	initialized = true
 }
+
+/* Print out a list of traces for the trace list local to the scheduler. */
+func PrintTrace() {
+}

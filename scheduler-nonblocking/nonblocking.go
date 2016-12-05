@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"sync"
 	"syscall"
 	"unsafe"
 
@@ -215,6 +216,10 @@ var aio_context_min = AIO_CONTEXT_MIN
 /* setup context for aio, manages as reference counter */
 func getCtx(num int) (*Context, error) {
 
+	trace := tracer.NewTraceEvent(T_GET_CONTEXT, &schedulerTraceList)
+	trace.Start()
+	defer trace.Stop()
+
 	// TODO: Order the list by remaining references
 	for _, context := range aio_contexts {
 		if new_references := context.references + num; new_references <= context.maxsize {
@@ -244,7 +249,8 @@ func getCtx(num int) (*Context, error) {
 	}
 
 	var ctx syscall.AioContext_t
-	err := syscall.IoSetup(uint(num_context_request), &ctx)
+	//err := syscall.IoSetup(uint(num_context_request), &ctx)
+	err := ioSetupWrapper(uint(num_context_request), &ctx)
 
 	var new_context *Context = new(Context)
 
@@ -328,7 +334,8 @@ func scheduler(c chan Operation) {
 
 				// begin read
 				aio.PrepPread(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
-				chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
+				//chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
+				chk_err(ioSubmitWrapper(ctx, 1, &iocbp))
 				//log.Println("Read submitted, waiting...")
 
 				// save this op as inflight
@@ -350,7 +357,8 @@ func scheduler(c chan Operation) {
 
 				// begin read
 				aio.PrepPwrite(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
-				chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
+				//chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
+				chk_err(ioSubmitWrapper(ctx, 1, &iocbp))
 				//log.Println("Write submitted...")
 
 				// save op & ctx as inflight
@@ -377,7 +385,9 @@ func scheduler(c chan Operation) {
 				var event syscall.IoEvent
 				var timeout syscall.Timespec
 				ctx := context.ctx
-				events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
+
+				//events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
+				events := ioGeteventsWrapper(ctx, 1, 1, &event, &timeout)
 
 				if events <= 0 {
 					//log.Println("in-flight not done yet!")
@@ -409,18 +419,64 @@ func scheduler(c chan Operation) {
 	}
 }
 
+func ioSubmitWrapper(ctx_id syscall.AioContext_t, nr int, iocbpp **syscall.Iocb) (err error) {
+	trace := tracer.NewTraceEvent(T_SUBMIT_SYSCALL, &schedulerTraceList)
+	trace.Start()
+	defer trace.Stop()
+	return syscall.IoSubmit(ctx_id, nr, iocbpp)
+}
+
+func ioGeteventsWrapper(ctx_id syscall.AioContext_t, nr_min int, nr int, events *syscall.IoEvent, timeout *syscall.Timespec) (n int) {
+	trace := tracer.NewTraceEvent(T_GET_EVENTS_SYSCALL, &schedulerTraceList)
+	trace.Start()
+	defer trace.Stop()
+	return syscall.IoGetevents(ctx_id, nr_min, nr, events, timeout)
+}
+
+func ioSetupWrapper(nr_events uint, ctx_idp *syscall.AioContext_t) (err error) {
+	trace := tracer.NewTraceEvent(T_SETUP_SYSCALL, &schedulerTraceList)
+	trace.Start()
+	defer trace.Stop()
+	return syscall.IoSetup(nr_events, ctx_idp)
+}
+
+var T_SCHEDULER_INIT, T_GET_CONTEXT, T_GET_EVENTS_SYSCALL, T_SUBMIT_SYSCALL, T_SETUP_SYSCALL tracer.Event_t
+
+func initTracer() {
+	var err error
+	T_SCHEDULER_INIT, err = tracer.NewEventType("InitScheduler")
+	T_GET_CONTEXT, err = tracer.NewEventType("GetContext")
+	T_GET_EVENTS_SYSCALL, err = tracer.NewEventType("IoGetevents")
+	T_SUBMIT_SYSCALL, err = tracer.NewEventType("IoSubmit")
+	T_SETUP_SYSCALL, err = tracer.NewEventType("IoSetup")
+	chk_err(err)
+}
+
+var once sync.Once
+
+var schedulerTraceList tracer.TraceList
+
 /*
    Called once upon creation, stays running and reading from channel for directions on what to do
 */
 func InitScheduler(c chan Operation) {
 
-	// scheduler was already initialized, ignore this call
-	if initialized != false {
-		return
+	init := func() {
+		initTracer()
+		trace := tracer.NewTraceEvent(T_SCHEDULER_INIT, &schedulerTraceList)
+		trace.Start()
+
+		// set up goroutine for scheduler to run, with the passed channel
+		channel = c // global state
+		go scheduler(c)
+		initialized = true
+		trace.Stop()
 	}
 
-	// set up goroutine for scheduler to run, with the passed channel
-	channel = c // global state
-	go scheduler(c)
-	initialized = true
+	once.Do(init)
+}
+
+/* Print out a list of traces for the trace list local to the scheduler. */
+func PrintTrace() {
+	schedulerTraceList.PrintLog()
 }
