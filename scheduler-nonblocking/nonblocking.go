@@ -409,6 +409,14 @@ func scheduler(c chan Operation) {
 	}
 }
 
+var T_EVENT1 tracer.Event_t
+
+func initTracer() {
+	var err error
+	T_EVENT1, err = tracer.NewEventType("Event1")
+	chk_err(err)
+}
+
 /*
    Called once upon creation, stays running and reading from channel for directions on what to do
 */
@@ -419,8 +427,13 @@ func InitScheduler(c chan Operation) {
 		return
 	}
 
+	initTracer()
+	trace := tracer.NewTraceEvent(T_EVENT1, &tracer.GlobalTraceList)
+	trace.Start()
+
 	// set up goroutine for scheduler to run, with the passed channel
 	channel = c // global state
 	go scheduler(c)
 	initialized = true
+	trace.Stop()
 }

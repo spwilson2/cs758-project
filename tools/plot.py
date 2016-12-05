@@ -52,6 +52,8 @@ def flat_bar(results,
     #x_loc_start = [0]
 
     for op_num, (op, results) in enumerate(split_results.items()):
+        if op != Go.READ_OP and op != Go.WRITE_OP:
+            continue
 
         # the x locations for op types
         x_loc = [val + width*op_num for val in x_loc_start]

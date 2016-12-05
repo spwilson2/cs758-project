@@ -54,4 +54,6 @@ class Go(object):
 
     OP_KEY = "Operation"
     LENGTH_KEY = "Length"
+    READ_OP = "Read"
+    WRITE_OP = "Write"
 ##############################################################################
