@@ -35,7 +35,6 @@ def bar(results,
     split_results = {}
 
     # Split results by type of op
-
     for result in results:
         op, length = result[Go.OP_KEY], result[Go.LENGTH_KEY]
         if op not in split_results:
@@ -56,19 +55,18 @@ def bar(results,
         # the x locations for op types
         x_loc = [val + width*op_num for val in x_loc_start]
         meanLength = numpy.mean(results)
-        lengthStd  = numpy.std(results)
+        lengthStd = numpy.std(results)
         bars.append(ax.bar(x_loc, meanLength, width, color=COLORS[op_num], yerr=lengthStd))
         ops.append(op)
 
-
+    pyplot.tick_params(axis='x', which='both', bottom='off', top='off', labelbottom='off')
+    ax.set_ylim(bottom=0)
+    if xlab is not None:
+        ax.set_xlabel(xlab)
     if ylab is not None:
         ax.set_ylabel(ylab)
     if title is not None:
         ax.set_title(title)
-    if xlab is not None:
-        if type(xlab) is not str:
-            ax.set_xticks(x_loc_start)
-        ax.set_xticklabels(xlab)
 
     for bar in bars:
         autolabel(bar, ax)

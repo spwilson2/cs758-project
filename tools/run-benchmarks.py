@@ -80,22 +80,23 @@ class Test():
 
         return results
 
-    def saveResults(self, results):
+    def saveResults(self, results, chartName):
         result_filename = genFilename(pfx=self.name+'-' if self.name is not None else '')
         plot.save_csv(results, joinpath(CSV_DIR, result_filename + '-results.csv'))
-        plot.bar(results, file_=joinpath(PLOT_DIR, result_filename + '-results.png'))
-
+        plot.bar(results, file_=joinpath(PLOT_DIR, result_filename + '-results.png'), title=chartName, ylab="execution time (ns)")
 
 def setupProject():
     make()
 
+def createAndRunTest(testName, blocking, rsize, nreads, nfiles, nwrites, wsize, gomaxprocs=None):
+    test = Test(blocking=blocking, name=testName, GOMAXPROCS=gomaxprocs, rsize=rsize, nreads=nreads, nfiles=nfiles, nwrites=nwrites, wsize=wsize)
+    test.saveResults(test.getResults(), testName)
 
 def main():
     setupProject()
-    #Test(blocking=True, rsize='1000', nreads='10', nfiles='1').run()
-    #Test(blocking=False, rsize='1000', nreads='10', nfiles='1').run()
-    test = Test(name='In order mixed reads', blocking=False, rsize='1000', nreads='10', nfiles='1', nwrites='10', wsize='1000')
-    test.saveResults(test.getResults())
+
+    createAndRunTest("In Order Mixed nonblocking", False, '1000', '10', '1', '10', '1000')
+    createAndRunTest("In Order Mixed blocking", True, '1000', '10', '1', '10', '1000')
 
 if __name__ == '__main__':
     parse_args()
