@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"sync"
 	"syscall"
 	"unsafe"
 
@@ -417,23 +418,24 @@ func initTracer() {
 	chk_err(err)
 }
 
+var once sync.Once
+
 /*
    Called once upon creation, stays running and reading from channel for directions on what to do
 */
 func InitScheduler(c chan Operation) {
 
-	// scheduler was already initialized, ignore this call
-	if initialized != false {
-		return
+	init := func() {
+		initTracer()
+		trace := tracer.NewTraceEvent(T_EVENT1, &tracer.GlobalTraceList)
+		trace.Start()
+
+		// set up goroutine for scheduler to run, with the passed channel
+		channel = c // global state
+		go scheduler(c)
+		initialized = true
+		trace.Stop()
 	}
 
-	initTracer()
-	trace := tracer.NewTraceEvent(T_EVENT1, &tracer.GlobalTraceList)
-	trace.Start()
-
-	// set up goroutine for scheduler to run, with the passed channel
-	channel = c // global state
-	go scheduler(c)
-	initialized = true
-	trace.Stop()
+	once.Do(init)
 }
