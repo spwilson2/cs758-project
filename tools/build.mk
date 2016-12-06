@@ -8,9 +8,9 @@ all: build
 .PHONY:gen
 gen: $(GEN_SRCS)
 ../generated/%.go:../src/main.go
-	python -c 'import build; print build.generate("$(notdir $@)")'
+	python -c 'import build; print(build.generate("$(notdir $@)"))'
 
 .PHONY:build
 build: $(TARGETS)
 ../generated/%:../generated/%.go
-	python -c 'import build; print build.build("$(notdir $@)")'
+	python -c 'import build; print(build.build("$(notdir $@)"))'

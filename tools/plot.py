@@ -7,7 +7,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as pyplot
 
 from constants import *
-COLORS = [name for name, hex in matplotlib.colors.cnames.iteritems()]
+COLORS = [name for name, hex in matplotlib.colors.cnames.items()]
 
 def save_csv(results, file_):
     file_ = open(file_, 'w')
