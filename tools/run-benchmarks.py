@@ -100,6 +100,7 @@ def batch_readtest(rsize, nreads, nfiles, threads):
 
         test = Test(name=name, blocking=blocking, rsize=rsize, nreads=nreads, nfiles=nfiles, threads=threads)
         results = test.getResults()
+        print(results)
         if results:
             test.saveResults(results)
 

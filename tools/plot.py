@@ -44,22 +44,25 @@ def flat_bar(results,
 
     fig, ax = pyplot.subplots()
 
+
     width = 0.35 # width of the bars
 
     bars = []
     ops = []
-    x_loc_start = range(len(split_results.values()[0]))
-    #x_loc_start = [0]
+    datas = len(split_results[Go.READ_OP] if split_results[Go.READ_OP] else
+            split_results[Go.WRITE_OP])
+    x_loc_start = range(datas)
 
     for op_num, (op, results) in enumerate(split_results.items()):
         if op != Go.READ_OP and op != Go.WRITE_OP:
             continue
+        #print(results)
 
         # the x locations for op types
         x_loc = [val + width*op_num for val in x_loc_start]
         lengthStd  = numpy.std(results)
-        print(x_loc)
         print(results)
+        print(x_loc)
         bars.append(ax.bar(x_loc, results, width, color=COLORS[op_num], yerr=lengthStd))
         ops.append(op)
 
