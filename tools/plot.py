@@ -46,12 +46,14 @@ def flat_bar(results,
 
 
     width = 0.35 # width of the bars
+    #width = 1 # width of the bars
 
     bars = []
     ops = []
     datas = len(split_results[Go.READ_OP] if split_results[Go.READ_OP] else
             split_results[Go.WRITE_OP])
     x_loc_start = range(datas)
+    #width =1/datas # width of the bars
 
     for op_num, (op, results) in enumerate(split_results.items()):
         if op != Go.READ_OP and op != Go.WRITE_OP:
@@ -63,7 +65,8 @@ def flat_bar(results,
         lengthStd  = numpy.std(results)
         print(results)
         print(x_loc)
-        bars.append(ax.bar(x_loc, results, width, color=COLORS[op_num], yerr=lengthStd))
+        #bars.append(ax.bar(x_loc, results, width, color=COLORS[op_num], yerr=lengthStd))
+        bars.append(ax.bar(x_loc, results, width, color=COLORS[op_num]))
         ops.append(op)
 
 
@@ -78,8 +81,8 @@ def flat_bar(results,
             ax.set_xticks(x_loc_start)
         ax.set_xticklabels(xlab)
 
-    for bar in bars:
-        autolabel(bar, ax)
+    #for bar in bars:
+    #    autolabel(bar, ax)
 
     ax.legend(bars, ops)
 

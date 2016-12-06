@@ -17,6 +17,8 @@ type timeoutObject struct {
 
 func newTimeoutObject(delay time.Duration) *timeoutObject {
 	new_timeout := new(timeoutObject)
+	new_timeout.signal = make(chan bool)
+	new_timeout.close = make(chan bool)
 	new_timeout.timer = delay
 	return new_timeout
 }

@@ -74,6 +74,7 @@ func InitScheduler(enableTracing bool) {
 		// set up goroutine for scheduler to run on another routine
 		scheduler.channel = make(chan *queueOp)
 		scheduler.inflight_ops = make(map[*syscall.Iocb]operation)
+		scheduler.inflight_context = make(map[*Context][]*queueOp)
 		scheduler.queued_ops = make(map[*Context][]*queueOp)
 
 		//scheduler.geteventsTimeout = newTimeoutObject(GETEVENTS_TIMEOUT)
@@ -114,16 +115,19 @@ func runScheduler() {
 		select {
 		case op := <-scheduler.channel:
 			// Queue the Op to be executed.
+			log.Println("Enqueing op.")
 			enqueueOp(op)
 
 		case <-scheduler.executeTimeout.signal:
 			// If there are any ops waiting to be submitted, submit
 			// them now.
+			log.Println("Submitting op.")
 			submitQueue()
 
 		default:
 			// Check if any ops have completed, if so return their
 			// results.
+			//log.Println("Getting events.")
 			getEvents()
 		}
 	}
@@ -145,7 +149,7 @@ func enqueueOp(qop_p *queueOp) {
 	context := qop_p.context
 	op_list, exists := scheduler.queued_ops[context]
 	if !exists {
-		op_list = make([]*queueOp, 1)
+		op_list = make([]*queueOp, 0)
 	}
 	op_list = append(op_list, qop_p)
 	scheduler.queued_ops[context] = op_list
@@ -166,10 +170,15 @@ func getEvents() {
 
 		// TODO: Change max number events (context.maxsize) to the
 		// current number of inflight events for the context.
-		events := ioGeteventsWrapper(context.ctx, 1, len(qop_p_list), &context.event_list[0], &timeout)
+		events := ioGeteventsWrapper(context.ctx, 0, len(qop_p_list), &context.event_list[0], &timeout)
 
-		if events <= 0 {
+		if events < 0 {
 			chk_err(IO_EVENTS_FAIL)
+			continue // not done yet
+		}
+
+		if events == 0 {
+			//chk_err(IO_EVENTS_FAIL)
 			continue // not done yet
 		}
 
@@ -213,6 +222,7 @@ func newQueuedOp(op operation) (newOp *queueOp) {
 
 	newOp.iocbp = iocbp
 	newOp.context = context
+	newOp.op = &op
 
 	switch {
 	case op.Op == READ:
@@ -237,6 +247,9 @@ func submitOps(context *Context, queue_list []*queueOp) {
 
 	// FIXME TODO: Remove assertion
 	for _, qop_p := range queue_list {
+		if qop_p == nil {
+			chk_err(FAIL)
+		}
 		if qop_p.context != context {
 			chk_err(FAIL)
 		}
@@ -252,7 +265,6 @@ func submitOps(context *Context, queue_list []*queueOp) {
 		if !exists {
 			qop_p_list = make([]*queueOp, 0)
 		}
-
 		scheduler.inflight_context[qop_p.context] = append(qop_p_list, qop_p)
 		scheduler.inflight_ops[qop_p.iocbp] = *qop_p.op
 	}
