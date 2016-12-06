@@ -7,7 +7,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as pyplot
 
 from constants import *
-COLORS = [name for name, hex in matplotlib.colors.cnames.iteritems()]
+COLORS = [name for name, hex in matplotlib.colors.cnames.items()]
 
 def save_csv(results, file_):
     file_ = open(file_, 'w')
@@ -25,13 +25,13 @@ def autolabel(rects, ax):
                 '%d' % int(height),
                 ha='center', va='bottom')
 
-
-def bar(results,
+def flat_bar(results,
         file_,
         ylab=None,
         xlab=None,
         title=None):
 
+    '''Create a bar graph plotting all times on the same axis.'''
     split_results = {}
 
     # Split results by type of op
@@ -44,23 +44,31 @@ def bar(results,
 
     fig, ax = pyplot.subplots()
 
+
     width = 0.35 # width of the bars
 
     bars = []
     ops = []
-    #x_loc_start = range(len(split_results.keys()))
-    x_loc_start = [0]
+    datas = len(split_results[Go.READ_OP] if split_results[Go.READ_OP] else
+            split_results[Go.WRITE_OP])
+    x_loc_start = range(datas)
 
     for op_num, (op, results) in enumerate(split_results.items()):
+        if op != Go.READ_OP and op != Go.WRITE_OP:
+            continue
+        #print(results)
 
         # the x locations for op types
         x_loc = [val + width*op_num for val in x_loc_start]
-        meanLength = numpy.mean(results)
         lengthStd  = numpy.std(results)
-        bars.append(ax.bar(x_loc, meanLength, width, color=COLORS[op_num], yerr=lengthStd))
+        print(results)
+        print(x_loc)
+        bars.append(ax.bar(x_loc, results, width, color=COLORS[op_num], yerr=lengthStd))
         ops.append(op)
 
 
+    pyplot.tick_params(axis='x', which='both', bottom='off', top='off', labelbottom='off')
+    ax.set_ylim(bottom=0)
     if ylab is not None:
         ax.set_ylabel(ylab)
     if title is not None:

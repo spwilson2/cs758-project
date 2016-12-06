@@ -38,6 +38,7 @@ func main() {
 	initScheduler()
 	runTest()
 	tracer.GlobalTraceList.PrintLog()
+	sut.PrintTrace()
 
 }
 
@@ -91,8 +92,7 @@ func getArgs() {
 }
 
 func initScheduler() {
-	c := make(chan sut.Operation)
-	sut.InitScheduler(c)
+	sut.InitScheduler(true)
 }
 
 func runTest() {

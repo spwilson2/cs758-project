@@ -49,7 +49,7 @@ class Test():
         program = self.program
         env = '' if self.GOMAXPROCS is None else 'GOMAXPROCS='+self.GOMAXPROCS
         args = " "
-        args = args.join(('-' + flag + ' ' + val for flag, val in self.flags.items()))
+        args = args.join(('-' + flag + ' ' + str(val) for flag, val in self.flags.items()))
         result = command(' '.join((env, program, args)))
         return result
 
@@ -83,19 +83,35 @@ class Test():
     def saveResults(self, results):
         result_filename = genFilename(pfx=self.name+'-' if self.name is not None else '')
         plot.save_csv(results, joinpath(CSV_DIR, result_filename + '-results.csv'))
-        plot.bar(results, file_=joinpath(PLOT_DIR, result_filename + '-results.png'))
+        plot.flat_bar(results, file_=joinpath(PLOT_DIR, result_filename + '-results.png'))
 
 
 def setupProject():
     make()
 
+def batch_readtest(rsize, nreads, nfiles, threads):
+
+    for blocking in [True, False]:
+        name = '-readtest'
+        if not blocking:
+            name = 'aio'+name
+        else:
+            name = 'blocking'+name
+
+        test = Test(name=name, blocking=blocking, rsize=rsize, nreads=nreads, nfiles=nfiles, threads=threads)
+        results = test.getResults()
+        print(results)
+        if results:
+            test.saveResults(results)
 
 def main():
     setupProject()
-    #Test(blocking=True, rsize='1000', nreads='10', nfiles='1').run()
-    #Test(blocking=False, rsize='1000', nreads='10', nfiles='1').run()
-    test = Test(name='In order mixed reads', blocking=False, rsize='1000', nreads='10', nfiles='1', nwrites='10', wsize='1000')
-    test.saveResults(test.getResults())
+    rsize=1000000
+    nreads=20
+    nfiles=4
+    threads=8
+    batch_readtest(rsize,nreads,nfiles,threads)
+
 
 if __name__ == '__main__':
     parse_args()
