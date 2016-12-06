@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"syscall"
+	"time"
 	"unsafe"
 
 	aio "github.com/spwilson2/cs758-project/libaio"
@@ -405,6 +406,25 @@ func scheduler(c chan Operation) {
 
 		} // end of select
 
+	}
+}
+
+type TimeoutObject struct {
+	close  chan bool //TODO: Add closing of the timeout.
+	signal chan bool
+	timer  time.Duration
+}
+
+func NewTimeoutObject(delay time.Duration) *TimeoutObject {
+	new_timeout := new(TimeoutObject)
+	new_timeout.timer = delay
+	return new_timeout
+}
+
+func (t *TimeoutObject) CountDown() {
+	for {
+		time.Sleep(t.timer)
+		t.signal <- true
 	}
 }
 
