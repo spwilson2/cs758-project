@@ -21,6 +21,7 @@ var aio_context_min = AIO_CONTEXT_MIN
 /* reference counting for context */
 type Context struct {
 	ctx        syscall.AioContext_t
+	event_list []syscall.IoEvent
 	references int
 	maxsize    int
 }
@@ -66,12 +67,15 @@ func getCtx(num int) (*Context, error) {
 
 	var new_context *Context = new(Context)
 
+	// Init the event list with capability for saving num_context_request
+	// events.
+	new_context.event_list = make([]syscall.IoEvent, num_context_request, num_context_request)
+
 	if err == nil {
 		new_context.ctx = ctx
 		new_context.references = num
 		new_context.maxsize = num_context_request
 		aio_contexts = append(aio_contexts, new_context)
-		//log.Printf("Appending the new context %p to list\n", new_context)
 	} else {
 		// Assume the request failed due to not enough resources
 		// TODO: should check the error condition...

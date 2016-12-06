@@ -31,7 +31,8 @@ func Write(fd int, p []byte) (n int, err error) {
 	var ret_err = new(error)
 
 	op := operation{WRITE, fd, "", p, 0, ret_valid, ret_n, ret_err}
-	scheduler.channel <- op
+	qop_p := newQueuedOp(op)
+	scheduler.channel <- qop_p
 
 	for *ret_valid != true {
 		// spin until op complete
@@ -54,7 +55,8 @@ func WriteAt(fd int, off int, p []byte) (n int, err error) {
 	var ret_err = new(error)
 
 	op := operation{WRITEAT, fd, "", p, int64(off), ret_valid, ret_n, ret_err}
-	scheduler.channel <- op
+	qop_p := newQueuedOp(op)
+	scheduler.channel <- qop_p
 
 	for *ret_valid != true {
 		// spin until op complete
@@ -78,7 +80,8 @@ func Read(fd int, p []byte) (n int, err error) {
 	var ret_err = new(error)
 
 	op := operation{READ, fd, "", p, 0, ret_valid, ret_n, ret_err}
-	scheduler.channel <- op
+	qop_p := newQueuedOp(op)
+	scheduler.channel <- qop_p
 
 	for *ret_valid != true {
 		// spin until op complete
@@ -102,7 +105,8 @@ func ReadAt(fd int, off int, p []byte) (n int, err error) {
 	var ret_err = new(error)
 
 	op := operation{READAT, fd, "", p, int64(off), ret_valid, ret_n, ret_err}
-	scheduler.channel <- op
+	qop_p := newQueuedOp(op)
+	scheduler.channel <- qop_p
 
 	for *ret_valid != true {
 		// spin until op complete
