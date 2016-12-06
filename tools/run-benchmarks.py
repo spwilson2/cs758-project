@@ -99,7 +99,9 @@ def batch_readtest(rsize, nreads, nfiles, threads):
             name = 'blocking'+name
 
         test = Test(name=name, blocking=blocking, rsize=rsize, nreads=nreads, nfiles=nfiles, threads=threads)
-        test.saveResults(test.getResults())
+        results = test.getResults()
+        if results:
+            test.saveResults(results)
 
 def main():
     setupProject()
