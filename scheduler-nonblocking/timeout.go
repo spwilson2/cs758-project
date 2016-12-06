@@ -4,6 +4,11 @@ import (
 	"time"
 )
 
+const (
+	EXECUTE_TIMEOUT   = 100 * time.Nanosecond
+	GETEVENTS_TIMEOUT = 1000 * time.Nanosecond
+)
+
 type timeoutObject struct {
 	close  chan bool //TODO: Add closing of the timeout.
 	signal chan bool
@@ -16,7 +21,7 @@ func newTimeoutObject(delay time.Duration) *timeoutObject {
 	return new_timeout
 }
 
-func (t *timeoutObject) CountDown() {
+func (t *timeoutObject) begin() {
 	for {
 		time.Sleep(t.timer)
 		t.signal <- true

@@ -2,7 +2,7 @@ package nonblocking
 
 import (
 	"log"
-	"runtime"
+	_ "runtime"
 	"sync"
 	"syscall"
 	"unsafe"
@@ -12,6 +12,7 @@ import (
 )
 
 const IO_EVENTS_FAIL = Error("Error on IoGetevents call. Expected 1 or more return events.")
+const UNSUPPORTED_EVENT = Error("Unsupported operation provided!\n")
 
 /* struct and const of Operations for AIO to do */
 const (
@@ -35,10 +36,21 @@ type operation struct {
 	Ret_N     *int   // return value, you must specify pointer for it to write to.
 	Ret_Err   *error // ^
 }
+
+type queuedOp struct {
+	iocbp   *syscall.Iocb
+	context *Context
+}
+
 type s struct {
-	init        sync.Once
-	initialized bool
-	channel     chan operation
+	init           sync.Once
+	initialized    bool
+	channel        chan operation
+	inflight_ops   map[*syscall.Iocb]operation
+	inflight_ctx   []*Context
+	queued_ops     map[*syscall.Iocb]operation
+	executeTimeout *timeoutObject
+	//geteventsTimeout *timeoutObject
 }
 
 var scheduler s
@@ -51,7 +63,7 @@ func InitScheduler(enableTracing bool) {
 	do_init := func() {
 		initTracer(enableTracing)
 
-		var trace *tracer.TraceEvent
+		var trace *tracer.TraceEvent //Ensure trace is scoped to end of function.
 		if enableTracing {
 			trace = tracer.NewTraceEvent(T_SCHEDULER_INIT, &schedulerTraceList)
 			trace.Start()
@@ -60,124 +72,193 @@ func InitScheduler(enableTracing bool) {
 
 		// set up goroutine for scheduler to run on another routine
 		scheduler.channel = make(chan operation)
-		go scheduler.run()
+		scheduler.inflight_ops = make(map[*syscall.Iocb]operation)
+		scheduler.inflight_ctx = make([]*Context, 100, 1000)
+
+		//scheduler.geteventsTimeout = newTimeoutObject(GETEVENTS_TIMEOUT)
+		scheduler.executeTimeout = newTimeoutObject(EXECUTE_TIMEOUT)
+
+		//go scheduler.geteventsTimeout.begin()
+		go scheduler.executeTimeout.begin()
+
+		go runScheduler()
 		scheduler.initialized = true
 	}
 
 	scheduler.init.Do(do_init)
 }
 
-/* Scheduler function, reads op from channel and does it */
-func (*s) run() {
-	// map to hold inflight aio ops
-	inflight := make(map[*syscall.Iocb]operation)
-	inflight_ctx := make([]*Context, 100, 1000)
+/*
+* Scheduler main function.
+*
+* The scheduler Has three jobs - Jobs are numbered by their priority, but
+* listed in a way that makes most sense to a reader:
+*
+* 3) Must read and collect op requests from the channel
+*
+* 2) Must execute submit these ops every executeOpTimeout
+*
+* 1) Must check for completion of ops every checkCompletionTimeout
+*
+* Due to time constraints we haven't implemented a progress garuntee, so we
+* have decided to keep the order the statements are in, not the labled order.
+*
+ */
+func runScheduler() {
 
-	//var context *Context // context so we can use it inside of the diff select cases
+	// Put us on our own thread to avoid thrashing from syscalls.
+	//runtime.LockOSThread()
 
 	for {
 		select {
 		case op := <-scheduler.channel:
-			log.Printf("Received operation: %v \n", op.Op)
+			// Queue the Op to be executed.
+			queueOp(op)
 
-			// @TODO: Handle operations.
-
-			// set up AIO
-			var ctx syscall.AioContext_t
-			context, err := getCtx(1)
-			chk_err(err)
-			ctx = context.ctx
-
-			var iocb syscall.Iocb
-			var iocbp = &iocb
-
-			var offset = false
-
-			switch {
-			case op.Op == READAT:
-				offset = true
-				fallthrough
-			case op.Op == READ:
-
-				if offset == false {
-					op.Off = 0 // not using offset
-				}
-
-				// begin read
-				aio.PrepPread(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
-				//chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
-				chk_err(ioSubmitWrapper(ctx, 1, &iocbp))
-
-				// save this op as inflight
-				inflight_ctx = append(inflight_ctx, context)
-				inflight[iocbp] = op
-
-			case op.Op == WRITEAT:
-				offset = true
-				fallthrough
-			case op.Op == WRITE:
-				if offset == false {
-					op.Off = 0 //do not use offset
-				}
-
-				// begin read
-				aio.PrepPwrite(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
-				//chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
-				chk_err(ioSubmitWrapper(ctx, 1, &iocbp))
-
-				// save op & ctx as inflight
-				inflight_ctx = append(inflight_ctx, context)
-				inflight[iocbp] = op
-
-			// switch
-			default:
+		case <-scheduler.executeTimeout.signal:
+			// If there are any ops waiting to be submitted, submit
+			// them now.
+			if len(scheduler.queued_ops) >= 1 {
+				submitQueue()
 			}
 
-		// select: no ops yet, check for any inflight ops to be done
 		default:
-			//log.Println("No new ops queued, checking in-flight...")
+			// Check if any ops have completed, if so return their
+			// results.
+			getEvents()
+		}
+	}
+}
 
-			runtime.Gosched()
-			// check all in-flight contexts
-			for _, context := range inflight_ctx {
-				runtime.Gosched()
+func submitQueue() {
+}
 
-				if context == nil {
-					continue
-				}
+func queueOp(op operation) {
+}
 
-				var event syscall.IoEvent
-				var timeout syscall.Timespec
-				ctx := context.ctx
+func getEvents() {
+	for _, context := range scheduler.inflight_ctx {
+		//runtime.Gosched()
 
-				//events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
-				events := ioGeteventsWrapper(ctx, 1, 1, &event, &timeout)
+		if context == nil {
+			continue
+		}
 
-				if events <= 0 {
-					continue // not done yet
-				}
+		var event syscall.IoEvent
+		var timeout syscall.Timespec
+		ctx := context.ctx
 
-				// set return vals, obtained from a map
-				op, ok := inflight[(*syscall.Iocb)(unsafe.Pointer(uintptr(event.Obj)))]
-				// make sure this event existed. If not, ???
-				if ok == false {
-					log.Println("event did not exist ??")
-					chk_err(IO_EVENTS_FAIL)
-				}
+		//events := syscall.IoGetevents(ctx, 1, 1, &event, &timeout)
+		events := ioGeteventsWrapper(ctx, 1, 1, &event, &timeout)
 
-				//@TODO: FIX THIS
-				//N_ptr := (*int)(unsafe.Pointer(uintptr(event.Obj)))
-				//log.Println("Setting return vals: ", *event.Obj)
-				*(op.Ret_N) = int(event.Res)
-				*(op.Ret_Err) = nil
-				*(op.Ret_Valid) = true
+		if events <= 0 {
+			continue // not done yet
+		}
 
-				//@TODO: Verify.
-				ungetCtx(context, 1)
+		// set return vals, obtained from a map
+		op, ok := scheduler.inflight_ops[(*syscall.Iocb)(unsafe.Pointer(uintptr(event.Obj)))]
+		// make sure this event existed. If not, ???
+		if ok == false {
+			log.Println("event did not exist ??")
+			chk_err(IO_EVENTS_FAIL)
+		}
 
-			}
+		//@TODO: FIX THIS
+		//N_ptr := (*int)(unsafe.Pointer(uintptr(event.Obj)))
+		//log.Println("Setting return vals: ", *event.Obj)
+		*(op.Ret_N) = int(event.Res)
+		*(op.Ret_Err) = nil
+		*(op.Ret_Valid) = true
 
-		} // end of select
+		//@TODO: Verify.
+		ungetCtx(context, 1)
 
 	}
 }
+
+func newQueuedOp(op operation) (newOp *queuedOp) {
+	var ctx syscall.AioContext_t
+	context, err := getCtx(1)
+	chk_err(err)
+	ctx = context.ctx
+	_ = ctx
+
+	var iocb syscall.Iocb
+	var iocbp = &iocb
+
+	newOp.iocbp = iocbp
+	newOp.context = context
+
+	switch {
+	case op.Op == READ:
+		op.Off = 0
+		fallthrough
+	case op.Op == READAT:
+		// begin read
+		aio.PrepPread(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
+
+	case op.Op == WRITE:
+		op.Off = 0
+		fallthrough
+	case op.Op == WRITEAT:
+		aio.PrepPwrite(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
+	default:
+		chk_err(UNSUPPORTED_EVENT)
+	}
+	return
+}
+
+func enqueueOp(op operation) {
+}
+
+//func execOp(op operation) {
+//	//log.Printf("Received operation: %v \n", op.Op)
+//
+//	// set up AIO
+//	var ctx syscall.AioContext_t
+//	context, err := getCtx(1)
+//	chk_err(err)
+//	ctx = context.ctx
+//
+//	var iocb syscall.Iocb
+//	var iocbp = &iocb
+//
+//	var offset = false
+//
+//	switch {
+//	case op.Op == READAT:
+//		offset = true
+//		fallthrough
+//	case op.Op == READ:
+//
+//		if offset == false {
+//			op.Off = 0 // not using offset
+//		}
+//
+//		// begin read
+//		aio.PrepPread(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
+//		//chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
+//		chk_err(ioSubmitWrapper(ctx, 1, &iocbp))
+//
+//		// save this op as inflight
+//		scheduler.inflight_ctx = append(scheduler.inflight_ctx, context)
+//		scheduler.inflight_ops[iocbp] = op
+//
+//	case op.Op == WRITEAT:
+//		offset = true
+//		fallthrough
+//	case op.Op == WRITE:
+//		if offset == false {
+//			op.Off = 0 //do not use offset
+//		}
+//
+//		// begin read
+//		aio.PrepPwrite(iocbp, op.Fd, op.Buf, uint64(len(op.Buf)), op.Off)
+//		//chk_err(syscall.IoSubmit(ctx, 1, &iocbp))
+//		chk_err(ioSubmitWrapper(ctx, 1, &iocbp))
+//
+//		// save op & ctx as inflight
+//		scheduler.inflight_ctx = append(scheduler.inflight_ctx, context)
+//		scheduler.inflight_ops[iocbp] = op
+//	}
+//}
