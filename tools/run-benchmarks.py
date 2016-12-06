@@ -49,7 +49,7 @@ class Test():
         program = self.program
         env = '' if self.GOMAXPROCS is None else 'GOMAXPROCS='+self.GOMAXPROCS
         args = " "
-        args = args.join(('-' + flag + ' ' + val for flag, val in self.flags.items()))
+        args = args.join(('-' + str(flag) + ' ' + str(val) for flag, val in self.flags.items()))
         result = command(' '.join((env, program, args)))
         return result
 
@@ -89,43 +89,40 @@ class Test():
 def setupProject():
     make()
 
-def createAndRunTest(testName, blocking, rsize, nreads, nfiles, nwrites, wsize, sortParameter, gomaxprocs=None):
-    test = Test(blocking=blocking, name=testName, GOMAXPROCS=gomaxprocs, rsize=rsize, nreads=nreads, nfiles=nfiles, nwrites=nwrites, wsize=wsize)
-    test.saveResults(test.getResults(), testName, sortParameter)
+
+def executeTestAndReturnResults(blocking, opType, offset, size, threadCount, numops, nfiles):
+    ioType = "blocking" if blocking else "nonblocking"
+    test = None
+    if(opType == "reads"):
+        test = Test(blocking, (ioType + " " + opType + "(offset: " + str(offset) + ", size: " + str(size) + ", threads: " + str(threadCount) + ")"), roff=offset, rsize=size, nreads=numops, nfiles = 1, threads=threadCount, GOMAXPROCS=threadCount)
+    else:
+        test = Test(blocking, (ioType + " " + opType + "(offset: " + str(offset) + ", size: " + str(size) + ", threads: " + str(threadCount) + ")"), woff=offset, wsize=size, nwrites=numops, nfiles = 1, threads=threadCount, GOMAXPROCS=threadCount)
+    return test.getResults()
 
 def main():
     setupProject()
 
-    # offsets
-    for i in range(0, 1):
-        # read sizes
-        for j in range(3, 7):
-            # thread counts
-            readSize = 10 ** j
-            for k in [None, 2, 4, 8, 16]:
-                blockingTest = Test(True, ("blocking reads(offset: " + i + ", size: " + readSize ", threads: " + k + ")"), GOMAXPROCS=k, rsize=readSize, nreads=10, nfiles=1)
-                blockingResults = blockingTest.getResults()                
+    for offset in range(0, 1):
+        for exponent in range(3, 7):
+            readSize = 10 ** exponent
+            for threadCount in [1, 2, 4, 8, 16]:
+                blockingResults = executeTestAndReturnResults(True, "reads", offset, threadCount, readSize, 10, 1)         
+                nonblockingResults = executeTestAndReturnResults(False, "reads", offset, threadCount, readSize, 10, 1)
 
-                nonblockingTest = Test(False, ("nonblocking reads(offset: " + i + ", size: " + readSize ", threads: " + k + ")"), GOMAXPROCS=k, rsize=readSize, nreads=10, nfiles=1).Run()
-                nonblockingResults = nonblockingTests.getResults()
+                for result in blockingResults:
+                    nonblockingResults.append(result)
+                Test.saveResults(nonblockingResults, ("reads(offset: " + str(offset) + ", size: " + str(readSize) + ", threads: " + str(threadCount) + ")"), Go.IO_TYPE_KEY)
+
+    for offset in range(0, 1):
+        for exponent in range(3, 7):
+            writeSize = 10 ** exponent
+            for threadCount in [1, 2, 4, 8, 16]:
+                blockingResults = executeTestAndReturnResults(True, "writes", offset, threadCount, writeSize, 10, 1)
+                nonblockingResults =  executeTestAndReturnResults(False, "writes", offset, threadCount, readSize, 10, 1)
                 
-                results = append(nonblockingResults, blockingResults)
-
-    # offsets
-    for i in range(0, 1):
-        # read sizes
-        for j in range(3, 7):
-            # thread counts
-            readSize = 10 ** j
-            for k in [None, 2, 4, 8, 16]:
-                blockingTest = Test(True, ("blocking writes(offset: " + i + ", size: " + writeSize ", threads: " + k + ")"), GOMAXPROCS=k, wsize=writeSize, nwrites=10, nfiles=1)
-                blockingResults = blockingTest.getResults()
-
-                nonblockingTests = Test(False, ("nonblocking writes(offset: " + i + ", size: " + writeSize ", threads: " + k + ")"), GOMAXPROCS=k, rsize=writeSize, nreads=10, nfiles=1).Run()
-                nonblockingResults = nonblockingTests.getResults()
-                
-                results = append(nonblockingResults, blockingResults)
-                Test.saveResults(results, ("writes(offset: " + i + ", size: " + writeSize ", threads: " + k + ")"), Go.IO_TYPE_KEY)
+                for result in blockingResults:
+                    nonblockingResults.append(result)
+                Test.saveResults(nonblockingResults, ("writes(offset: " + str(offset) + ", size: " + str(writeSize) + ", threads: " + str(threadCount) + ")"), Go.IO_TYPE_KEY)
                 
 
 if __name__ == '__main__':

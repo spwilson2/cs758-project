@@ -13,7 +13,7 @@ def save_csv(results, file_):
     file_ = open(file_, 'w')
     w = csv.DictWriter(file_, fieldnames=results[0].keys())
     w.writeheader()
-    w.writerows(results)
+    #w.writerows(results)
     file_.close()
 
 
@@ -72,6 +72,33 @@ def bar(results,
     for bar in bars:
         autolabel(bar, ax)
 
-    ax.legend(bars, ops)
+    ax.legend(bars, ops, loc=4)
 
     pyplot.savefig(file_)
+
+# def bar(results,
+#         file_,
+#         sortParameter,
+#         ylab=None,
+#         xlab=None,
+#         title=None):
+
+#     split_results = {}
+
+
+
+#     pyplot.tick_params(axis='x', which='both', bottom='off', top='off', labelbottom='off')
+#     ax.set_ylim(bottom=0)
+#     if xlab is not None:
+#         ax.set_xlabel(xlab)
+#     if ylab is not None:
+#         ax.set_ylabel(ylab)
+#     if title is not None:
+#         ax.set_title(title)
+
+#     for bar in bars:
+#         autolabel(bar, ax)
+
+#     ax.legend(bars, ops)
+
+#     pyplot.savefig(file_)
