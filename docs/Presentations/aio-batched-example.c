@@ -19,7 +19,6 @@ char buffer[SIZE_TO_READ];
 int main()
 {
     int i = 0;
-    //int file = open("./ext2mount/aio-batched-example.c", O_RDONLY, 0);
     int file = open("aio-batched-example.c", O_RDONLY, 0);
 
     // Create io_context for the kernel
@@ -41,14 +40,14 @@ int main()
     for (i=0;i< CONCURRENT; i++)
         iocb_requestp[i] = &iocb_request[i];
 
-    //char **buffers = malloc(sizeof(char*)*CONCURRENT);
+    char **buffers = malloc(sizeof(char*)*CONCURRENT);
 
-    //for (i=0;i< CONCURRENT; i++)
-    //    buffers[i] = calloc(SIZE_TO_READ, sizeof(char));
+    for (i=0;i< CONCURRENT; i++)
+        buffers[i] = calloc(SIZE_TO_READ, sizeof(char));
 
     // Initialize the request information.
     for (i=0;i< CONCURRENT; i++){
-        io_prep_pread(&iocb_request[i], file, buffer, SIZE_TO_READ, i);
+        io_prep_pread(&iocb_request[i], file, buffers[i], SIZE_TO_READ, i);
     }
 
     // Submit all at once.
@@ -59,16 +58,15 @@ int main()
         return 1;
     }
 
-    struct io_event e;
+    struct io_event *e = calloc(CONCURRENT,sizeof(struct io_event));
     struct timespec timeout;
     memset(&timeout, 0,sizeof(timeout));
-    memset(&e, 0,sizeof(e));
 
     // Poll waiting for a response to our AIO request
     while (1) {
         timeout.tv_nsec=500000000;//0.5s
 
-        int poll_val = io_getevents(ctx, 1, CONCURRENT, &e, &timeout);
+        int poll_val = io_getevents(ctx, 1, CONCURRENT, e, &timeout);
 
         if (poll_val >= 1) {
             printf("poll_val:%d\n", poll_val);
@@ -83,7 +81,7 @@ int main()
             //sleep(1);
         }
     } 
-    //printf("%s\n", buffers[9]);
-    printf("%s\n", buffer);
+    printf("%s\n", buffers[9]);
     io_destroy(ctx);
+    return 0;
 }
