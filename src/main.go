@@ -38,6 +38,7 @@ func main() {
 	initScheduler()
 	runTest()
 	tracer.GlobalTraceList.PrintLog()
+	sut.PrintTrace()
 
 }
 

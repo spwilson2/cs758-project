@@ -49,7 +49,7 @@ class Test():
         program = self.program
         env = '' if self.GOMAXPROCS is None else 'GOMAXPROCS='+self.GOMAXPROCS
         args = " "
-        args = args.join(('-' + str(flag) + ' ' + str(val) for flag, val in self.flags.items()))
+        args = args.join(('-' + flag + ' ' + str(val) for flag, val in self.flags.items()))
         result = command(' '.join((env, program, args)))
         return result
 
@@ -89,6 +89,20 @@ class Test():
 def setupProject():
     make()
 
+def batch_readtest(rsize, nreads, nfiles, threads):
+
+    for blocking in [True, False]:
+        name = '-readtest'
+        if not blocking:
+            name = 'aio'+name
+        else:
+            name = 'blocking'+name
+
+        test = Test(name=name, blocking=blocking, rsize=rsize, nreads=nreads, nfiles=nfiles, threads=threads)
+        results = test.getResults()
+        print(results)
+        if results:
+            test.saveResults(results)
 
 def executeTestAndReturnResults(blocking, opType, offset, size, threadCount, numops, nfiles):
     ioType = "blocking" if blocking else "nonblocking"
@@ -124,6 +138,12 @@ def main():
                     nonblockingResults.append(result)
                 Test.saveResults(nonblockingResults, ("writes(offset: " + str(offset) + ", size: " + str(writeSize) + ", threads: " + str(threadCount) + ")"), Go.IO_TYPE_KEY)
                 
+    rsize=1000000
+    nreads=20
+    nfiles=4
+    threads=8
+    batch_readtest(rsize,nreads,nfiles,threads)
+
 
 if __name__ == '__main__':
     parse_args()

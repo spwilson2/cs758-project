@@ -7,7 +7,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as pyplot
 
 from constants import *
-COLORS = [name for name, hex in matplotlib.colors.cnames.iteritems()]
+COLORS = [name for name, hex in matplotlib.colors.cnames.items()]
 
 def save_csv(results, file_):
     file_ = open(file_, 'w')
@@ -25,14 +25,14 @@ def autolabel(rects, ax):
                 '%d' % int(height),
                 ha='center', va='bottom')
 
-
-def bar(results,
+def flat_bar(results,
         file_,
         sortParameter,
         ylab=None,
         xlab=None,
         title=None):
 
+    '''Create a bar graph plotting all times on the same axis.'''
     split_results = {}
 
     # Split results by type of op
@@ -44,15 +44,17 @@ def bar(results,
 
     fig, ax = pyplot.subplots()
 
+
     width = 0.35 # width of the bars
 
     bars = []
     ops = []
-    #x_loc_start = range(len(split_results.keys()))
-    x_loc_start = [0]
-
+    datas = len(split_results[Go.READ_OP] if split_results[Go.READ_OP] else
+            split_results[Go.WRITE_OP])
+    x_loc_start = range(datas)
     for test_num, (ind, results) in enumerate(split_results.items()):
-
+        if op != Go.READ_OP and op != Go.WRITE_OP:
+            continue
         # the x locations for op types
         x_loc = [val + width*test_num for val in x_loc_start]
         meanLength = numpy.mean(results)
