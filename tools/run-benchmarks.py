@@ -62,7 +62,7 @@ class Test():
             result_dict = {}
             for match in matches:
                 key, val = match.group('key'), match.group('val')
-                result_dict[key] = val
+                result_dict[key.encode("ascii")] = val.encode()
 
             if result_dict:
                 results.append(result_dict)
@@ -82,9 +82,10 @@ class Test():
         return results
 
     @staticmethod
-    def saveResults(results, name, sortParameter):
+    def saveResults(results, name):
         plot.save_csv(results, joinpath(CSV_DIR, name + '-results.csv'))
-        plot.bar(results, file_=joinpath(PLOT_DIR, name + '-results.png'), sortParameter=sortParameter, title=name, ylab="execution time (ns)")
+        plot.execution_bar(results, file_=joinpath(PLOT_DIR, name + '-results.png'), title=name, ylab="execution time (ns)")
+        #plot.tracedata_bar(results, file_=joinpath(PLOT_DIR, name + '-results.png'), title=name, ylab="execution time (ns)")
 
 def setupProject():
     make()
@@ -100,7 +101,6 @@ def batch_readtest(rsize, nreads, nfiles, threads):
 
         test = Test(name=name, blocking=blocking, rsize=rsize, nreads=nreads, nfiles=nfiles, threads=threads)
         results = test.getResults()
-        print(results)
         if results:
             test.saveResults(results)
 
@@ -116,33 +116,31 @@ def executeTestAndReturnResults(blocking, opType, offset, size, threadCount, num
 def main():
     setupProject()
 
-    for offset in range(0, 1):
-        for exponent in range(3, 7):
-            readSize = 10 ** exponent
-            for threadCount in [1, 2, 4, 8, 16]:
-                blockingResults = executeTestAndReturnResults(True, "reads", offset, threadCount, readSize, 10, 1)         
-                nonblockingResults = executeTestAndReturnResults(False, "reads", offset, threadCount, readSize, 10, 1)
+    """
+        Executes tests of various thread counts for various read/write sizes
+    """
+    for testType in ["reads", "writes"]:
+        for offset in range(0, 1):
+            results = []
+            for threadCount in [1,2,4,8,16]:
+                for exponent in range(3,7):
+                    opSize = 10 ** exponent
+                    blockingResults = executeTestAndReturnResults(True, testType, offset, opSize, threadCount, 10, 1)
+                    nonblockingResults = executeTestAndReturnResults(False, testType, offset, opSize, threadCount, 10, 1)
 
-                for result in blockingResults:
-                    nonblockingResults.append(result)
-                Test.saveResults(nonblockingResults, ("reads(offset: " + str(offset) + ", size: " + str(readSize) + ", threads: " + str(threadCount) + ")"), Go.IO_TYPE_KEY)
-
-    for offset in range(0, 1):
-        for exponent in range(3, 7):
-            writeSize = 10 ** exponent
-            for threadCount in [1, 2, 4, 8, 16]:
-                blockingResults = executeTestAndReturnResults(True, "writes", offset, threadCount, writeSize, 10, 1)
-                nonblockingResults =  executeTestAndReturnResults(False, "writes", offset, threadCount, readSize, 10, 1)
+                    for result in blockingResults:
+                        results.append(result)
+                    
+                    for result in nonblockingResults:
+                        results.append(result)
+                    
+                Test.saveResults(results, (testType + "(offset: " + str(offset) + ", size: " + str(opSize) + ", threads: " + str(threadCount) + ")"))
                 
-                for result in blockingResults:
-                    nonblockingResults.append(result)
-                Test.saveResults(nonblockingResults, ("writes(offset: " + str(offset) + ", size: " + str(writeSize) + ", threads: " + str(threadCount) + ")"), Go.IO_TYPE_KEY)
-                
-    rsize=1000000
-    nreads=20
-    nfiles=4
-    threads=8
-    batch_readtest(rsize,nreads,nfiles,threads)
+    # rsize=1000000
+    # nreads=20
+    # nfiles=4
+    # threads=8
+    # batch_readtest(rsize,nreads,nfiles,threads)
 
 
 if __name__ == '__main__':
