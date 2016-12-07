@@ -1,6 +1,6 @@
 CC=gcc
 CCFLAGS+=-laio -ggdb
-TARGETS=aio-example io-example odirect-aio
+TARGETS= $(basename $(wildcard *.c))
 .PHONY:all clean
 all: $(TARGETS)
 %:%.c Makefile

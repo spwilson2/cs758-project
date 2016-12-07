@@ -84,15 +84,15 @@ class Test():
     @staticmethod
     def saveResults(results, name):
         plot.save_csv(results, joinpath(CSV_DIR, name + '-results.csv'))
-        plot.execution_bar(results, file_=joinpath(PLOT_DIR, name + '-results.png'), title=name, ylab="execution time (ns)")
-        #plot.tracedata_bar(results, file_=joinpath(PLOT_DIR, name + '-results.png'), title=name, ylab="execution time (ns)")
+        plot.execution_bar(results, file_=joinpath(PLOT_DIR, name + 'execution-time-results.png'), title=name+" (Execution Time)", ylab="execution time (ns)")
+        plot.tracedata_bar(results, file_=joinpath(PLOT_DIR, name + '-trace-events-results.png'), title=name+" (Trace Events)", ylab="execution time (ns)")
 
 def setupProject():
     make()
 
 def batch_readtest(rsize, nreads, nfiles, threads):
 
-    for blocking in [True, False]:
+    for blocking in [False, True]:
         name = '-readtest'
         if not blocking:
             name = 'aio'+name
@@ -101,16 +101,19 @@ def batch_readtest(rsize, nreads, nfiles, threads):
 
         test = Test(name=name, blocking=blocking, rsize=rsize, nreads=nreads, nfiles=nfiles, threads=threads)
         results = test.getResults()
+        iosubmits = len([result for result in results if result[Go.OP_KEY] ==
+                'IoSubmit'])
+        print("Operations:", iosubmits)
         if results:
-            test.saveResults(results)
+            test.saveResults(results, "batch_readtest")
 
 def executeTestAndReturnResults(blocking, opType, offset, size, threadCount, numops, nfiles):
     ioType = "blocking" if blocking else "nonblocking"
     test = None
     if(opType == "reads"):
-        test = Test(blocking, (ioType + " " + opType + "(offset: " + str(offset) + ", size: " + str(size) + ", threads: " + str(threadCount) + ")"), roff=offset, rsize=size, nreads=numops, nfiles = 1, threads=threadCount, GOMAXPROCS=threadCount)
+        test = Test(blocking, (ioType + " " + opType + "(offset: " + str(offset) + ", threads: " + str(threadCount) + ")"), roff=offset, rsize=size, nreads=numops, nfiles = 1, threads=threadCount, GOMAXPROCS=threadCount)
     else:
-        test = Test(blocking, (ioType + " " + opType + "(offset: " + str(offset) + ", size: " + str(size) + ", threads: " + str(threadCount) + ")"), woff=offset, wsize=size, nwrites=numops, nfiles = 1, threads=threadCount, GOMAXPROCS=threadCount)
+        test = Test(blocking, (ioType + " " + opType + "(offset: " + str(offset) + ", threads: " + str(threadCount) + ")"), woff=offset, wsize=size, nwrites=numops, nfiles = 1, threads=threadCount, GOMAXPROCS=threadCount)
     return test.getResults()
 
 def main():
@@ -134,13 +137,13 @@ def main():
                     for result in nonblockingResults:
                         results.append(result)
                     
-                Test.saveResults(results, (testType + "(offset: " + str(offset) + ", size: " + str(opSize) + ", threads: " + str(threadCount) + ")"))
+                Test.saveResults(results, (testType + "(offset: " + str(offset) + ", threads: " + str(threadCount) + ")"))
                 
-    # rsize=1000000
-    # nreads=20
-    # nfiles=4
-    # threads=8
-    # batch_readtest(rsize,nreads,nfiles,threads)
+    rsize=1000000
+    nreads=20
+    nfiles=4
+    threads=8
+    batch_readtest(rsize,nreads,nfiles,threads)
 
 
 if __name__ == '__main__':

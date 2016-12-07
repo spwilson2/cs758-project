@@ -35,8 +35,9 @@ var f_path string
 func main() {
 
 	getArgs()
-	initScheduler()
+	sut.InitScheduler(true)
 	runTest()
+	sut.EndScheduler()
 	tracer.GlobalTraceList.PrintLog()
 	sut.PrintTrace()
 
@@ -89,11 +90,6 @@ func getArgs() {
 	if file_list != "" {
 		f_files = strings.Split(file_list, ",")
 	}
-}
-
-func initScheduler() {
-	c := make(chan sut.Operation)
-	sut.InitScheduler(c)
 }
 
 func runTest() {
@@ -234,7 +230,7 @@ func scheduleOp(file, offset int, buffer []byte, readNotWrite, threaded bool, co
 			eventType = tracer.T_WRITE
 		}
 
-		trace := tracer.NewTraceEvent(eventType, &tracer.GlobalTraceList)
+		trace := tracer.NewTraceEvent(eventType, tracer.GlobalTraceList)
 		trace.Start()
 		ret, err := op(file, offset, buffer)
 		trace.Stop()

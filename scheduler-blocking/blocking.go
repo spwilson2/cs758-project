@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"os"
+	"sync"
 	"syscall"
 )
 
@@ -94,17 +95,24 @@ func Creat(path string, mode uint32) (fd int, err error) {
 	return syscall.Creat(path, mode)
 }
 
-func InitScheduler(c chan Operation) {
+type s struct {
+	init        sync.Once
+	initialized bool
+}
 
-	// scheduler was already initialized, ignore this call
-	if initialized != false {
-		return
+var scheduler s
+
+/*
+   Called once upon creation, stays running and reading from channel for directions on what to do
+*/
+func InitScheduler(enableTrace bool) {
+	do_init := func() {
+		scheduler.initialized = true
 	}
 
-	// set up goroutine for scheduler to run, with the passed channel
-	channel = c // global state
-	//go scheduler(c)
-	initialized = true
+	scheduler.init.Do(do_init)
+}
+func EndScheduler() {
 }
 
 /* Print out a list of traces for the trace list local to the scheduler. */
