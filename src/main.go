@@ -95,8 +95,6 @@ func getArgs() {
 func runTest() {
 
 	var use_threads bool
-	var do_read bool
-	var do_write bool
 	var file_list []string
 	var file_list_handles []int
 
@@ -123,8 +121,6 @@ func runTest() {
 
 	reads_per_file = f_numReads / len(file_list)
 	writes_per_file = f_numWrites / len(file_list)
-	do_read = (reads_per_file >= 1)
-	do_write = (writes_per_file >= 1)
 
 	// Open the files to be tested.
 	for _, file_name := range file_list {
@@ -156,8 +152,11 @@ func runTest() {
 	wbuf := make([]byte, f_writeSize)
 	rbuf := make([]byte, f_readSize)
 
-	thread_collector := make(chan bool)
-	thread_count := 0
+	/* Place enough tokens for each of our active threads to take. */
+	thread_collector := make(chan bool, f_threads)
+	for thread := 0; thread < f_threads; thread++ {
+		thread_collector <- true
+	}
 
 	/* Execute the tests. */
 	if f_mixOps {
@@ -168,8 +167,6 @@ func runTest() {
 			for op := 0; op < ops_per_file; op++ {
 				op_index := (iter * ops_per_file) + op
 				offset := (op) * averageOffset
-
-				thread_count++
 
 				readNotWrite := writeOrder[op_index]
 				var buffer []byte
@@ -183,33 +180,25 @@ func runTest() {
 			}
 		}
 	} else {
-		if do_read {
-			for _, handle := range file_list_handles {
-				for op := 0; op < reads_per_file; op++ {
-					offset := op * f_readOffset
+		for _, handle := range file_list_handles {
+			for op := 0; op < reads_per_file; op++ {
+				offset := op * f_readOffset
 
-					thread_count++
-					scheduleOp(handle, offset, rbuf, true, use_threads, thread_collector)
-				}
+				scheduleOp(handle, offset, rbuf, true, use_threads, thread_collector)
 			}
 		}
-		if do_write {
-			for _, handle := range file_list_handles {
-				for op := 0; op < writes_per_file; op++ {
-					offset := op * f_writeOffset
+		for _, handle := range file_list_handles {
+			for op := 0; op < writes_per_file; op++ {
+				offset := op * f_writeOffset
 
-					thread_count++
-					scheduleOp(handle, offset, wbuf, false, use_threads, thread_collector)
-				}
+				scheduleOp(handle, offset, wbuf, false, use_threads, thread_collector)
 			}
 		}
 	}
 
-	if use_threads {
-		/* Finish the multithreaded test. */
-		for thread := 0; thread < thread_count; thread++ {
-			_ = <-thread_collector
-		}
+	/* Finish the multithreaded test. */
+	for thread := 0; thread < f_threads; thread++ {
+		_ = <-thread_collector
 	}
 
 	/* Cleanup from the tests. */
@@ -237,12 +226,11 @@ func scheduleOp(file, offset int, buffer []byte, readNotWrite, threaded bool, co
 
 		panic_chk(err)
 		assertF(ret == len(buffer), "ret: %v len: %v\n", ret, len(buffer))
-		if threaded {
-			collector <- true
-		}
+		thread_exit(threaded, collector)
 	}
 
 	if threaded {
+		thread_enter(threaded, collector)
 		go execOp()
 	} else {
 		execOp()
@@ -294,4 +282,15 @@ func trace(id string, elapsed *int64) (string, time.Time, *int64) {
 
 func un(id string, start time.Time, elapsed *int64) {
 	*elapsed = time.Since(start).Nanoseconds()
+}
+
+func thread_enter(threaded bool, limiter chan bool) {
+	if threaded {
+		<-limiter
+	}
+}
+func thread_exit(threaded bool, limiter chan bool) {
+	if threaded {
+		limiter <- true
+	}
 }
