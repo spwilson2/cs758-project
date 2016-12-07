@@ -12,12 +12,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 	//SCHEDULER_UNDER_TEST
 )
 
 const GEN_FILE_BASENAME = "testfile-"
 const GEN_FILE_SUFFIX = ".gen"
+const BLOCKSIZE int = 512
 
 /*Vars set by flags.*/
 var f_threads int
@@ -84,6 +86,10 @@ func getArgs() {
 	default:
 	}
 
+	// Change sizes to block granularity.
+	f_writeSize = (f_writeSize / BLOCKSIZE) * BLOCKSIZE
+	f_readSize = (f_readSize / BLOCKSIZE) * BLOCKSIZE
+
 	// TODO
 	/* Assert that we have set at least one testable configuration. */
 
@@ -124,7 +130,8 @@ func runTest() {
 
 	// Open the files to be tested.
 	for _, file_name := range file_list {
-		handle, err := sut.OpenFile(file_name)
+		//handle, err := sut.OpenFile(file_name)
+		handle, err := syscall.Open(file_name, syscall.O_RDONLY|syscall.O_DIRECT, 0)
 		panic_chk(err)
 		file_list_handles = append(file_list_handles, handle)
 	}
