@@ -233,7 +233,7 @@ func scheduleOp(file, offset int, buffer []byte, readNotWrite, threaded bool, co
 			eventType = tracer.T_WRITE
 		}
 
-		trace := tracer.NewTraceEvent(eventType, &tracer.GlobalTraceList)
+		trace := tracer.NewTraceEvent(eventType, tracer.GlobalTraceList)
 		trace.Start()
 		ret, err := op(file, offset, buffer)
 		trace.Stop()

@@ -19,7 +19,7 @@ var (
 	T_SETUP_SYSCALL tracer.Event_t
 )
 
-var schedulerTraceList tracer.TraceList
+var schedulerTraceList *tracer.TraceList
 
 /* Print out a list of traces for the trace list local to the scheduler. */
 func PrintTrace() {
@@ -29,6 +29,9 @@ func PrintTrace() {
 func initTracer(enable bool) {
 	var err error
 	if enable {
+		//schedulerTraceList = new(tracer.TraceList)
+		schedulerTraceList = tracer.GlobalTraceList
+
 		T_SCHEDULER_INIT, err = tracer.NewEventType("InitScheduler")
 		chk_err(err)
 		T_GET_CONTEXT, err = tracer.NewEventType("GetContext")
@@ -46,7 +49,7 @@ func initTracer(enable bool) {
 }
 
 func ioSubmitTracer(ctx_id syscall.AioContext_t, nr int, iocbpp **syscall.Iocb) (err error) {
-	trace := tracer.NewTraceEvent(T_SUBMIT_SYSCALL, &schedulerTraceList)
+	trace := tracer.NewTraceEvent(T_SUBMIT_SYSCALL, schedulerTraceList)
 	trace.Start()
 	err = syscall.IoSubmit(ctx_id, nr, iocbpp)
 	trace.Stop()
@@ -54,7 +57,7 @@ func ioSubmitTracer(ctx_id syscall.AioContext_t, nr int, iocbpp **syscall.Iocb) 
 }
 
 func ioGeteventsTracer(ctx_id syscall.AioContext_t, nr_min int, nr int, events *syscall.IoEvent, timeout *syscall.Timespec) (n int) {
-	trace := tracer.NewTraceEvent(T_GET_EVENTS_SYSCALL, &schedulerTraceList)
+	trace := tracer.NewTraceEvent(T_GET_EVENTS_SYSCALL, schedulerTraceList)
 	trace.Start()
 	n = syscall.IoGetevents(ctx_id, nr_min, nr, events, timeout)
 	trace.Stop()
@@ -62,7 +65,7 @@ func ioGeteventsTracer(ctx_id syscall.AioContext_t, nr_min int, nr int, events *
 }
 
 func ioSetupTracer(nr_events uint, ctx_idp *syscall.AioContext_t) (err error) {
-	trace := tracer.NewTraceEvent(T_SETUP_SYSCALL, &schedulerTraceList)
+	trace := tracer.NewTraceEvent(T_SETUP_SYSCALL, schedulerTraceList)
 	trace.Start()
 	err = syscall.IoSetup(nr_events, ctx_idp)
 	trace.Stop()

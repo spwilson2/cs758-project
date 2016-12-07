@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var GlobalTraceList TraceList
+var GlobalTraceList *TraceList
 
 type Event_t int
 
@@ -35,6 +35,10 @@ type TraceList struct {
 	list      []*TraceEvent
 	lock      sync.Mutex
 	idCounter int32
+}
+
+func init() {
+	GlobalTraceList = new(TraceList)
 }
 
 func NewEventType(event string) (Event_t, error) {
@@ -74,7 +78,7 @@ func (log *TraceList) PrintLog() {
 
 		var opString string = EventMap[entry.eventType]
 
-		fmt.Printf("Operation: %-8s ", opString)
+		fmt.Printf("Operation: %-15s ", opString)
 		fmt.Printf("Length: %-10d", entry.stopTime.Sub(entry.startTime).Nanoseconds())
 		fmt.Printf("ID: %-5d\n", entry.id)
 		//fmt.Printf("%v\n", *entry)

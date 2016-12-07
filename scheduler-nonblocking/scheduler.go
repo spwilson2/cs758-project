@@ -1,8 +1,7 @@
 package nonblocking
 
 import (
-	"log"
-	_ "runtime"
+	"runtime"
 	"sync"
 	"syscall"
 	"unsafe"
@@ -57,7 +56,8 @@ type s struct {
 var scheduler s
 
 /*
-   Called once upon creation, stays running and reading from channel for directions on what to do
+   Called once upon creation, the scheduler stays running and reads from channel
+   for directions on what to do
 */
 func InitScheduler(enableTracing bool) {
 
@@ -66,7 +66,7 @@ func InitScheduler(enableTracing bool) {
 
 		var trace *tracer.TraceEvent //Ensure trace is scoped to end of function.
 		if enableTracing {
-			trace = tracer.NewTraceEvent(T_SCHEDULER_INIT, &schedulerTraceList)
+			trace = tracer.NewTraceEvent(T_SCHEDULER_INIT, schedulerTraceList)
 			trace.Start()
 			defer trace.Stop()
 		}
@@ -109,30 +109,29 @@ func InitScheduler(enableTracing bool) {
 func runScheduler() {
 
 	// Put us on our own thread to avoid thrashing from syscalls.
-	//runtime.LockOSThread()
+	runtime.LockOSThread()
 
 	for {
 		select {
 		case op := <-scheduler.channel:
 			// Queue the Op to be executed.
-			log.Println("Enqueing op.")
 			enqueueOp(op)
+			submitQueue()
 
 		case <-scheduler.executeTimeout.signal:
 			// If there are any ops waiting to be submitted, submit
 			// them now.
-			log.Println("Submitting op.")
-			submitQueue()
+			//submitQueue()
 
 		default:
 			// Check if any ops have completed, if so return their
 			// results.
-			//log.Println("Getting events.")
 			getEvents()
 		}
 	}
 }
 
+/* submitQueue submits all queueOps saved by the scheduler */
 func submitQueue() {
 	if len(scheduler.queued_ops) == 0 {
 		return
@@ -145,6 +144,7 @@ func submitQueue() {
 	}
 }
 
+/* enqueueOp equeues a queueOp for later submission with syscall.IoSubmit */
 func enqueueOp(qop_p *queueOp) {
 	context := qop_p.context
 	op_list, exists := scheduler.queued_ops[context]
@@ -188,12 +188,7 @@ func getEvents() {
 			event := context.event_list[i]
 
 			// set return vals, obtained from a map
-			op, exists := scheduler.inflight_ops[(*syscall.Iocb)(unsafe.Pointer(uintptr(event.Obj)))]
-
-			if !exists {
-				log.Println("event did not exist ??")
-				chk_err(FAIL)
-			}
+			op, _ := scheduler.inflight_ops[(*syscall.Iocb)(unsafe.Pointer(uintptr(event.Obj)))]
 
 			//@TODO: FIX THIS
 			//N_ptr := (*int)(unsafe.Pointer(uintptr(event.Obj)))
@@ -210,10 +205,16 @@ func getEvents() {
 	}
 }
 
-func newQueuedOp(op operation) (newOp *queueOp) {
+/*
+* newQueueOp creates and initializes a new queueOp, must be thread safe to be
+* able to allow op callers to call this.
+ */
+func newQueueOp(op operation) (newOp *queueOp) {
 	var ctx syscall.AioContext_t
 	newOp = new(queueOp)
-	context, err := getCtx(1)
+
+	context, err := getCtx(1) // Needs to be thread safe call.
+
 	chk_err(err)
 	ctx = context.ctx
 	_ = ctx
@@ -243,6 +244,10 @@ func newQueuedOp(op operation) (newOp *queueOp) {
 	return
 }
 
+/*
+* submitOps submits all give queueOps in the queue_list using the given
+* context.
+ */
 func submitOps(context *Context, queue_list []*queueOp) {
 
 	// FIXME TODO: Remove assertion
