@@ -91,7 +91,7 @@ def setupProject():
 
 def batch_readtest(rsize, nreads, nfiles, threads):
 
-    for blocking in [True, False]:
+    for blocking in [False, True]:
         name = '-readtest'
         if not blocking:
             name = 'aio'+name
@@ -100,7 +100,9 @@ def batch_readtest(rsize, nreads, nfiles, threads):
 
         test = Test(name=name, blocking=blocking, rsize=rsize, nreads=nreads, nfiles=nfiles, threads=threads)
         results = test.getResults()
-        print(results)
+        iosubmits = len([result for result in results if result[Go.OP_KEY] ==
+                'IoSubmit'])
+        print("Operations:", iosubmits)
         if results:
             test.saveResults(results)
 

@@ -51,11 +51,13 @@ int main()
     }
 
     // Submit all at once.
-    if (io_submit(ctx, CONCURRENT, iocb_requestp) !=CONCURRENT) {
-        io_destroy(ctx);
-        printf("Error val: %s\n", strerror(errno));
-        printf("io_submit errorn\n");
-        return 1;
+    for (i=0; i<CONCURRENT; i++){
+        if (io_submit(ctx, 1, iocb_requestp) !=1) {
+            io_destroy(ctx);
+            printf("Error val: %s\n", strerror(errno));
+            printf("io_submit errorn\n");
+            return 1;
+        }
     }
 
     struct io_event *e = calloc(CONCURRENT,sizeof(struct io_event));

@@ -48,18 +48,18 @@ func initTracer(enable bool) {
 	}
 }
 
-func ioSubmitTracer(ctx_id syscall.AioContext_t, nr int, iocbpp **syscall.Iocb) (err error) {
+func ioSubmitTracer(ctx_id syscall.AioContext_t, nr int, iocbpp **syscall.Iocb) (n int, err error) {
 	trace := tracer.NewTraceEvent(T_SUBMIT_SYSCALL, schedulerTraceList)
 	trace.Start()
-	err = syscall.IoSubmit(ctx_id, nr, iocbpp)
+	n, err = syscall.IoSubmit(ctx_id, nr, iocbpp)
 	trace.Stop()
 	return
 }
 
-func ioGeteventsTracer(ctx_id syscall.AioContext_t, nr_min int, nr int, events *syscall.IoEvent, timeout *syscall.Timespec) (n int) {
+func ioGeteventsTracer(ctx_id syscall.AioContext_t, nr_min int, nr int, events *syscall.IoEvent, timeout *syscall.Timespec) (n int, err error) {
 	trace := tracer.NewTraceEvent(T_GET_EVENTS_SYSCALL, schedulerTraceList)
 	trace.Start()
-	n = syscall.IoGetevents(ctx_id, nr_min, nr, events, timeout)
+	n, err = syscall.IoGetevents(ctx_id, nr_min, nr, events, timeout)
 	trace.Stop()
 	return
 }

@@ -45,7 +45,8 @@ type queueOp struct {
 type s struct {
 	init             sync.Once
 	initialized      bool
-	channel          chan *queueOp
+	disable          chan bool
+	channel          chan operation
 	inflight_ops     map[*syscall.Iocb]operation
 	inflight_context map[*Context][]*queueOp
 	queued_ops       map[*Context][]*queueOp
@@ -72,7 +73,8 @@ func InitScheduler(enableTracing bool) {
 		}
 
 		// set up goroutine for scheduler to run on another routine
-		scheduler.channel = make(chan *queueOp)
+		scheduler.channel = make(chan operation)
+		scheduler.disable = make(chan bool)
 		scheduler.inflight_ops = make(map[*syscall.Iocb]operation)
 		scheduler.inflight_context = make(map[*Context][]*queueOp)
 		scheduler.queued_ops = make(map[*Context][]*queueOp)
@@ -88,6 +90,13 @@ func InitScheduler(enableTracing bool) {
 	}
 
 	scheduler.init.Do(do_init)
+}
+
+func EndScheduler() {
+	end := func() {
+		scheduler.disable <- true
+	}
+	scheduler.init.Do(end)
 }
 
 /*
@@ -113,15 +122,17 @@ func runScheduler() {
 
 	for {
 		select {
+		case <-scheduler.disable:
+			return
 		case op := <-scheduler.channel:
 			// Queue the Op to be executed.
-			enqueueOp(op)
-			submitQueue()
+			qop_p := newQueueOp(op)
+			enqueueOp(qop_p)
 
 		case <-scheduler.executeTimeout.signal:
 			// If there are any ops waiting to be submitted, submit
 			// them now.
-			//submitQueue()
+			submitQueue()
 
 		default:
 			// Check if any ops have completed, if so return their
@@ -141,6 +152,9 @@ func submitQueue() {
 		// Combine the ops for the same context into
 		// a single submission.
 		submitOps(context, op_queue)
+
+		// Clear entries once they are submitted.
+		delete(scheduler.queued_ops, context)
 	}
 }
 
@@ -157,23 +171,23 @@ func enqueueOp(qop_p *queueOp) {
 
 /* Check all inflight events for completion. */
 func getEvents() {
+	if len(scheduler.inflight_context) == 0 {
+		runtime.Gosched()
+		return
+	}
 	for context, qop_p_list := range scheduler.inflight_context {
-		//runtime.Gosched()
-
-		// FIXME TODO: Remove assertion
-		if context == nil {
-			chk_err(FAIL)
-			continue
-		}
 
 		var timeout syscall.Timespec
 
 		// TODO: Change max number events (context.maxsize) to the
 		// current number of inflight events for the context.
-		events := ioGeteventsWrapper(context.ctx, 0, len(qop_p_list), &context.event_list[0], &timeout)
+		events, err := ioGeteventsWrapper(context.ctx, 0, len(qop_p_list), &context.event_list[0], &timeout)
+		chk_err(err)
 
 		if events < 0 {
-			chk_err(IO_EVENTS_FAIL)
+			//chk_err(IO_EVENTS_FAIL)
+			chk_err(err)
+			chk_err(FAIL)
 			continue // not done yet
 		}
 
@@ -193,15 +207,15 @@ func getEvents() {
 			//@TODO: FIX THIS
 			//N_ptr := (*int)(unsafe.Pointer(uintptr(event.Obj)))
 			//log.Println("Setting return vals: ", *event.Obj)
+
 			*(op.Ret_N) = int(event.Res)
 			*(op.Ret_Err) = nil
 			*(op.Ret_Valid) = true
 
 		}
 
-		//@TODO: Verify.
 		ungetCtx(context, events)
-
+		delete(scheduler.inflight_context, context)
 	}
 }
 
@@ -250,18 +264,10 @@ func newQueueOp(op operation) (newOp *queueOp) {
  */
 func submitOps(context *Context, queue_list []*queueOp) {
 
-	// FIXME TODO: Remove assertion
-	for _, qop_p := range queue_list {
-		if qop_p == nil {
-			chk_err(FAIL)
-		}
-		if qop_p.context != context {
-			chk_err(FAIL)
-		}
-	}
+	iocbp_list := make([]*syscall.Iocb, len(queue_list), len(queue_list))
 
-	iocbp_list := make([]*syscall.Iocb, len(queue_list))
 	for i, qop_p := range queue_list {
+
 		// Create the list of iocbp's
 		iocbp_list[i] = qop_p.iocbp
 
@@ -274,5 +280,10 @@ func submitOps(context *Context, queue_list []*queueOp) {
 		scheduler.inflight_ops[qop_p.iocbp] = *qop_p.op
 	}
 
-	chk_err(ioSubmitWrapper(context.ctx, len(queue_list), &iocbp_list[0]))
+	submitted, err := ioSubmitWrapper(context.ctx, len(queue_list), &iocbp_list[0])
+
+	chk_err(err)
+	if submitted != len(queue_list) {
+		chk_err(FAIL)
+	}
 }

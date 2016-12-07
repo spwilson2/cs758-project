@@ -1,7 +1,6 @@
 package nonblocking
 
 import (
-	"sync"
 	"syscall"
 
 	tracer "github.com/spwilson2/cs758-project/tracer"
@@ -27,15 +26,8 @@ type Context struct {
 	maxsize    int
 }
 
-var temp_mutex sync.Mutex
-
 /* setup context for aio, manages as reference counter */
 func getCtx(num int) (*Context, error) {
-
-	//FIXME: Not thread safe.
-
-	temp_mutex.Lock()
-	defer temp_mutex.Unlock()
 
 	trace := tracer.NewTraceEvent(T_GET_CONTEXT, schedulerTraceList)
 	trace.Start()
@@ -53,7 +45,6 @@ func getCtx(num int) (*Context, error) {
 
 	// Unable to find a context with remaining space, let's create a new
 	// one.
-
 	var num_context_request int
 
 	switch {
