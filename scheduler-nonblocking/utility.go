@@ -8,6 +8,8 @@ import (
 // Hack to get constant errors.
 type Error string
 
+const FAIL = Error("Failed.\n")
+
 func (e Error) Error() string { return string(e) }
 
 /* easily check for errors and panic */

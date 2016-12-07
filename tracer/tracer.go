@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var GlobalTraceList TraceList
+var GlobalTraceList *TraceList
 
 type Event_t int
 
@@ -37,6 +37,10 @@ type TraceList struct {
 	idCounter int32
 }
 
+func init() {
+	GlobalTraceList = new(TraceList)
+}
+
 func NewEventType(event string) (Event_t, error) {
 	id := atomic.AddInt32(&tracerIdCounter, 1)
 	new_event := Event_t(id)
@@ -48,11 +52,11 @@ func NewEventType(event string) (Event_t, error) {
 }
 
 func NewTraceEvent(traceType Event_t, list *TraceList) *TraceEvent {
-	var newTrace TraceEvent
+	newTrace := new(TraceEvent)
 	newTrace.eventType = traceType
-	list.addTrace(&newTrace)
+	list.addTrace(newTrace)
 	newTrace.id = atomic.AddInt32(&list.idCounter, 1)
-	return &newTrace
+	return newTrace
 }
 
 func (event *TraceEvent) Start() {
@@ -74,9 +78,11 @@ func (log *TraceList) PrintLog() {
 
 		var opString string = EventMap[entry.eventType]
 
-		fmt.Printf("Operation: %-8s ", opString)
-		fmt.Printf("Length: %-10d", entry.stopTime.Sub(entry.startTime).Nanoseconds())
-		fmt.Printf("ID: %-5d\n", entry.id)
+		fmt.Printf("Operation: %-15s ", opString)
+		fmt.Printf("Length: %-10d ", entry.stopTime.Sub(entry.startTime).Nanoseconds())
+		fmt.Printf("ID: %-5d \n", entry.id)
+		//fmt.Printf("Start: %-10v ", entry.startTime)
+		//fmt.Printf("Stop: %-10v \n", entry.stopTime)
 		//fmt.Printf("%v\n", *entry)
 	}
 }

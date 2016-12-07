@@ -112,6 +112,8 @@ func InitScheduler(enableTrace bool) {
 
 	scheduler.init.Do(do_init)
 }
+func EndScheduler() {
+}
 
 /* Print out a list of traces for the trace list local to the scheduler. */
 func PrintTrace() {
