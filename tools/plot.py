@@ -1,5 +1,6 @@
 import csv
 
+#import pdb
 import numpy
 import matplotlib
 # Don't use X to display.
@@ -39,7 +40,7 @@ def execution_bar(results, file_, ylab=None, title=None):
             key = "rsize"
         elif result[Go.OP_KEY] == "Write":
             key = "wsize"
-        else: 
+        else:
             continue
         op_size, length = result[key], result[Go.LENGTH_KEY]
         if op_size not in split_results:
@@ -105,11 +106,11 @@ def tracedata_bar(results, file_, ylab=None, title=None):
             key = "rsize"
         elif "wsize" in result.keys():
             key = "wsize"
-        
+
         # we only want trace data which only occurs on non blocking operations
         if result[Go.OP_KEY] == "Read" or result[Go.OP_KEY] == "Write" or result[Go.IO_TYPE_KEY] == "blocking":
             continue
-        
+
         op_size, length = result[key], result[Go.LENGTH_KEY]
         if op_size not in split_results:
             split_results[op_size] = {}
@@ -160,5 +161,64 @@ def tracedata_bar(results, file_, ylab=None, title=None):
 
     for bar in bars:
         autolabel(bar, ax)
+
+    pyplot.savefig(file_)
+
+def flat_bar(results,
+        file_,
+        ylab=None,
+        xlab=None,
+        title=None):
+
+    '''Create a bar graph plotting all times on the same axis.'''
+    split_results = {}
+
+    # Split results by type of op
+
+    #pdb.set_trace()
+    for result in results:
+        op, length = result[Go.OP_KEY], result[Go.LENGTH_KEY]
+        if op not in split_results:
+            split_results[op] = []
+        split_results[op].append(int(length))
+
+    fig, ax = pyplot.subplots()
+
+
+    width = 0.35 # width of the bars
+    #width = 1 # width of the bars
+
+    bars = []
+    ops = []
+    datas = len(split_results[Go.READ_OP] if Go.READ_OP in split_results else split_results[Go.WRITE_OP])
+    x_loc_start = range(datas)
+    #width =1/datas # width of the bars
+
+    for op_num, (op, results) in enumerate(split_results.items()):
+        if op != Go.READ_OP and op != Go.WRITE_OP:
+            continue
+
+        # the x locations for op types
+        x_loc = [val + width*op_num for val in x_loc_start]
+        lengthStd  = numpy.std(results)
+        bars.append(ax.bar(x_loc, results, width, color=COLORS[op_num]))
+        ops.append(op)
+
+
+    pyplot.tick_params(axis='x', which='both', bottom='off', top='off', labelbottom='off')
+    ax.set_ylim(bottom=0)
+    if ylab is not None:
+        ax.set_ylabel(ylab)
+    if title is not None:
+        ax.set_title(title)
+    if xlab is not None:
+        if type(xlab) is not str:
+            ax.set_xticks(x_loc_start)
+        ax.set_xticklabels(xlab)
+
+    #for bar in bars:
+    #    autolabel(bar, ax)
+
+    ax.legend(bars, ops)
 
     pyplot.savefig(file_)

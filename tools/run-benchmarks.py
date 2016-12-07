@@ -86,26 +86,24 @@ class Test():
         plot.save_csv(results, joinpath(CSV_DIR, name + '-results.csv'))
         plot.execution_bar(results, file_=joinpath(PLOT_DIR, name + 'execution-time-results.png'), title=name+" (Execution Time)", ylab="execution time (ns)")
         plot.tracedata_bar(results, file_=joinpath(PLOT_DIR, name + '-trace-events-results.png'), title=name+" (Trace Events)", ylab="execution time (ns)")
+        #plot.flat_bar(results, file_=joinpath(PLOT_DIR, name + '-single-events-results.png'), title=name+" (Single Events)", ylab="execution time (ns)")
 
 def setupProject():
     make()
 
-def batch_readtest(rsize, nreads, nfiles, threads):
-
-    for blocking in [False, True]:
-        name = '-readtest'
-        if not blocking:
-            name = 'aio'+name
-        else:
-            name = 'blocking'+name
-
-        test = Test(name=name, blocking=blocking, rsize=rsize, nreads=nreads, nfiles=nfiles, threads=threads)
-        results = test.getResults()
-        iosubmits = len([result for result in results if result[Go.OP_KEY] ==
-                'IoSubmit'])
-        print("Operations:", iosubmits)
-        if results:
-            test.saveResults(results, "batch_readtest")
+#def batch_readtest(rsize, nreads, nfiles, threads):
+#
+#    for blocking in [False, True]:
+#        name = '-readtest'
+#        if not blocking:
+#            name = 'aio'+name
+#        else:
+#            name = 'blocking'+name
+#
+#        test = Test(name=name, blocking=blocking, rsize=rsize, nreads=nreads, nfiles=nfiles, threads=threads)
+#        results = test.getResults()
+#        if results:
+#            test.saveResults(results, "batch_readtest")
 
 def executeTestAndReturnResults(blocking, opType, offset, size, threadCount, numops, nfiles):
     ioType = "blocking" if blocking else "nonblocking"
@@ -126,24 +124,24 @@ def main():
         for offset in range(0, 1):
             results = []
             for threadCount in [1,2,4,8,16]:
-                for exponent in range(3,7):
+                for exponent in range(3,9):
                     opSize = 10 ** exponent
                     blockingResults = executeTestAndReturnResults(True, testType, offset, opSize, threadCount, 10, 1)
                     nonblockingResults = executeTestAndReturnResults(False, testType, offset, opSize, threadCount, 10, 1)
 
                     for result in blockingResults:
                         results.append(result)
-                    
+
                     for result in nonblockingResults:
                         results.append(result)
-                    
+
                 Test.saveResults(results, (testType + "(offset: " + str(offset) + ", threads: " + str(threadCount) + ")"))
-                
-    rsize=1000000
-    nreads=20
-    nfiles=4
-    threads=8
-    batch_readtest(rsize,nreads,nfiles,threads)
+
+    #rsize=1000000
+    #nreads=20
+    #nfiles=4
+    #threads=8
+    #batch_readtest(rsize,nreads,nfiles,threads)
 
 
 if __name__ == '__main__':
