@@ -85,7 +85,7 @@ class Test():
     def saveResults(results, name):
         plot.save_csv(results, joinpath(CSV_DIR, name + '-results.csv'))
         plot.execution_bar(results, file_=joinpath(PLOT_DIR, name + 'execution-time-results.png'), title=name+" (Execution Time)", ylab="execution time (ns)")
-        plot.tracedata_bar(results, file_=joinpath(PLOT_DIR, name + '-trace-events-results.png'), title=name+" (Trace Events)", ylab="execution time (ns)")
+        plot.tracedata_bar(results, file_=joinpath(PLOT_DIR, name + '-trace-events-mean-results.png'), title=name+" (Trace Events Mean)", ylab="execution time (ns)")
         #plot.flat_bar(results, file_=joinpath(PLOT_DIR, name + '-single-events-results.png'), title=name+" (Single Events)", ylab="execution time (ns)")
 
 def setupProject():

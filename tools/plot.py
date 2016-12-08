@@ -1,4 +1,5 @@
 import csv
+import collections
 
 #import pdb
 import numpy
@@ -123,7 +124,7 @@ def tracedata_bar(results, file_, ylab=None, title=None):
 
     processed_means = {}
     processed_std = {}
-    for op_size in split_results.keys():
+    for op_size in sorted(split_results.keys()):
         for sched_overhead in split_results[op_size]:
             if sched_overhead not in processed_means:
                 processed_means[sched_overhead] = []
@@ -153,8 +154,8 @@ def tracedata_bar(results, file_, ylab=None, title=None):
         ax.set_title(title)
 
     ax.set_xticks(ind + (width * (N / 2)))
-    ax.set_xticklabels(split_results.keys())
-    ax.set_ylim(bottom=0)
+    ax.set_xticklabels(sorted(split_results.keys()))
+    ax.set_ylim([0,15000])
 
     ax.legend(bars, processed_means.keys(), loc=0)
 
